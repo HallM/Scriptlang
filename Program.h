@@ -8,6 +8,11 @@
 #include "VMBytecode.h"
 #include "VMStack.h"
 
+struct MethodMetadata {
+    size_t param_size;
+    size_t stack_size;
+};
+
 // Program is a set of compiled instructions and information to find addresses.
 // This can be used to generate a fixed stack frame that is just for globals.
 class Program {
@@ -31,12 +36,14 @@ public:
         _globals_size += s;
     }
     void add_builtin(std::string name, IRunnable* runnable);
-    void add_method(std::string name, std::vector<Opcode> method_code);
+    void add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code);
 
     size_t get_global_address(std::string name) const;
     size_t get_builtin_address(std::string name) const;
     size_t get_method_address(std::string name) const;
     size_t current_method_address() const;
+
+    const MethodMetadata& get_method_metadata(std::string name) const;
 
     size_t globals_size() const;
     const std::vector<IRunnable*>& get_builtins() const;
@@ -49,5 +56,6 @@ private:
 
     std::unordered_map<std::string, size_t> _builtin_addresses;
     std::unordered_map<std::string, size_t> _function_addresses;
+    std::unordered_map<std::string, MethodMetadata> _function_metadata;
     std::unordered_map<std::string, size_t> _global_addresses;
 };

@@ -20,10 +20,12 @@ Program::add_builtin(std::string name, IRunnable* runnable) {
 }
 
 void
-Program::add_method(std::string name, std::vector<Opcode> method_code) {
+Program::add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code) {
     size_t addr = _code.size();
     std::copy(method_code.begin(), method_code.end(), std::back_inserter(_code));
     _function_addresses[name] = addr;
+
+    _function_metadata[name] = MethodMetadata{param_size, stack_size};
 }
 
 size_t
@@ -44,6 +46,11 @@ Program::get_method_address(std::string name) const {
 size_t
 Program::current_method_address() const {
     return _code.size();
+}
+
+const MethodMetadata&
+Program::get_method_metadata(std::string name) const {
+    return _function_metadata.at(name);
 }
 
 size_t

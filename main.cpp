@@ -33,12 +33,11 @@ int main() {
     program.add_global<float>("N");
 
     // Average(float,float)float, 4+8 stack size
-    // base+0: a
+    // base+0: a / result
     // base+4: b
-    // base+0: result
     // base+8: tmp
     // 4 stack + 8 param
-    program.add_method("Average", {
+    program.add_method("Average", 8, 4, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{4}, 0, 0),
@@ -56,7 +55,7 @@ int main() {
     // func5(), 8+0 stack size:
     // base+0: param1 (also result)
     // base+4: param2
-    program.add_method("func5", {
+    program.add_method("func5", 0, 8, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{8}, 0, 0),
@@ -83,7 +82,7 @@ int main() {
     // func4(), stack 8+0
     // base+0 param2
     // base+4 param1/ret
-    program.add_method("func4", {
+    program.add_method("func4", 0, 8, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{8}, 0, 0),
@@ -111,7 +110,7 @@ int main() {
     });
 
     // func3(), stack 0
-    program.add_method("func3", {
+    program.add_method("func3", 0, 0, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{0}, 0, 0),
@@ -124,7 +123,7 @@ int main() {
      });
 
     // func2(), stack 0
-    program.add_method("func2", {
+    program.add_method("func2", 0, 0, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{0}, 0, 0),
@@ -139,7 +138,7 @@ int main() {
     // Recursion(int), stack 4+4
     // base+0 is rec
     // base+4 is param/temp
-    program.add_method("Recursion", {
+    program.add_method("Recursion", 4, 4, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{4}, 0, 0),
@@ -201,7 +200,7 @@ int main() {
     // base+4 is temp?
     // base+8 is p1
     // base+12 is p2
-    program.add_method("main", {
+    program.add_method("main", 0, 16, {
         //Opcode(Bytecode::BeginFrame,
         //       DataLoc::G, DataLoc::C, DataLoc::C,
         //       GlobalAddress{16}, 0, 0),
@@ -252,10 +251,10 @@ int main() {
                DataLoc::C, DataLoc::C, DataLoc::L,
                (int)0, (int)0, LocalAddress{16})
         });
-    VM* m = new VM(VMSTACK_PAGE_SIZE, program);
+    VM* m = new VM(VMSTACK_PAGE_SIZE);
 
     std::shared_ptr<VMFixedStack> globals = program.generate_state();
-    m->run_method(*globals, program.get_method_address("main"), 0, 16);
+    m->run_method(program, "main", *globals);
 
     float N = *globals->at<float>(program.get_global_address("N"));
     std::cout << "N = " << N << "\n";

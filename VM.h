@@ -9,17 +9,17 @@
 
 class VM {
 public:
-    VM(size_t stack_size, const Program program);
+    VM(size_t stack_size);
     ~VM();
 
-    void run_method(VMFixedStack& globals, size_t ip, size_t param_bytes, size_t stack_bytes);
+    void run_method(const Program& program, std::string method_name, VMFixedStack& globals);
 
 private:
     void _precall(size_t param_bytes, size_t stack_bytes);
     // void _setup_stackframe(size_t stack_size);
     void _postcall(size_t stack_bytes);
     void _jump(DataLoc l, Opdata d);
-    bool _run_next(VMFixedStack& globals);
+    bool _run_next(const Program& program, VMFixedStack& globals);
 
     template<typename T>
     T _getv(VMFixedStack& globals, DataLoc l, Opdata d) {
@@ -132,8 +132,6 @@ private:
         //std::cout << a << " != " << b << " = " << r << "\n";
         return r;
     }
-
-    const Program _program;
 
     size_t _instruction_index;
     size_t _base;

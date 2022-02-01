@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-VM::VM(size_t stack_size, const Program program)
-    : data(stack_size), _exec_stack(1<<16), _program(program), _instruction_index(0), _base(0)
+VM::VM(size_t stack_size)
+    : data(stack_size), _exec_stack(1<<16), _instruction_index(0), _base(0)
 {
     _exec_stack_top = 0;
 }
@@ -11,12 +11,13 @@ VM::VM(size_t stack_size, const Program program)
 VM::~VM() {}
 
 void
-VM::run_method(VMFixedStack& globals, size_t ip, size_t param_bytes, size_t stack_bytes) {
-    size_t s = _program.get_code().size();
+VM::run_method(const Program& program, std::string method_name, VMFixedStack& globals) {
+    auto& metadata = program.get_method_metadata(method_name);
+    size_t s = program.get_code().size();
     _instruction_index = s;
-    _precall(param_bytes, stack_bytes);
-    _instruction_index = ip;
-    while (_instruction_index < s && _run_next(globals)) {}
+    _precall(metadata.param_size, metadata.stack_size);
+    _instruction_index = program.get_method_address(method_name);
+    while (_instruction_index < s && _run_next(program, globals)) {}
 }
 
 void
@@ -67,8 +68,8 @@ VM::_jump(DataLoc l, Opdata d) {
 }
 
 bool
-VM::_run_next(VMFixedStack& globals) {
-    const auto& oc = _program.get_code()[_instruction_index];
+VM::_run_next(const Program& program, VMFixedStack& globals) {
+    const auto& oc = program.get_code()[_instruction_index];
     //std::cout << _instruction_index << " << " << (int)oc.opcode.op << "\n";
     _instruction_index++;
 
@@ -120,7 +121,7 @@ VM::_run_next(VMFixedStack& globals) {
 
     case Bytecode::CallExtern: {
         size_t fn = std::get<GlobalAddress>(oc.p1).addr;
-        IRunnable* r = _program.get_builtins()[fn];
+        IRunnable* r = program.get_builtins()[fn];
         r->invoke(data, data.size());
         break;
     }
