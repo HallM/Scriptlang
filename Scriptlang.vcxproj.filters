@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="gitstuff">
+      <UniqueIdentifier>{ca412e60-c348-4c70-b9f9-92095338bbac}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -44,5 +47,13 @@
     <ClInclude Include="VMStack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".gitattributes">
+      <Filter>gitstuff</Filter>
+    </None>
+    <None Include=".gitignore">
+      <Filter>gitstuff</Filter>
+    </None>
   </ItemGroup>
 </Project>

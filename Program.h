@@ -1,15 +1,28 @@
 #pragma once
 
 #include <unordered_map>
+#include <memory>
 #include <vector>
 
 #include "VMFFI.h"
 #include "VMBytecode.h"
+#include "VMStack.h"
 
+// Program is a set of compiled instructions and information to find addresses.
+// This can be used to generate a fixed stack frame that is just for globals.
 class Program {
 public:
     Program();
     ~Program();
+
+    template <typename T>
+    T get_global(std::string name, VMFixedStack& globals) {
+        auto address = get_global_address(name);
+        return globals.at<T>(address);
+    }
+
+    // Generates a fixed stack containing all globals.
+    std::shared_ptr<VMFixedStack> generate_state();
 
     template <typename T>
     void add_global(std::string name) {
@@ -20,10 +33,10 @@ public:
     void add_builtin(std::string name, IRunnable* runnable);
     void add_method(std::string name, std::vector<Opcode> method_code);
 
-    size_t get_global(std::string name) const;
-    size_t get_builtin(std::string name) const;
-    size_t get_method(std::string name) const;
-    size_t current_method() const;
+    size_t get_global_address(std::string name) const;
+    size_t get_builtin_address(std::string name) const;
+    size_t get_method_address(std::string name) const;
+    size_t current_method_address() const;
 
     size_t globals_size() const;
     const std::vector<IRunnable*>& get_builtins() const;

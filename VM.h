@@ -12,31 +12,20 @@ public:
     VM(size_t stack_size, const Program program);
     ~VM();
 
-    void run_method(size_t ip, size_t param_bytes, size_t stack_bytes);
-
-    template<typename T>
-    T get_value(size_t stack_address) {
-        return _getv<T>(DataLoc::G, GlobalAddress{stack_address});
-    }
-
-    template<typename T>
-    void set_value(T value, size_t stack_address) {
-        _setv<T>(value, DataLoc::G, GlobalAddress{stack_address});
-    }
+    void run_method(VMFixedStack& globals, size_t ip, size_t param_bytes, size_t stack_bytes);
 
 private:
-    void _reserve_globals(size_t stack_size);
     void _precall(size_t param_bytes, size_t stack_bytes);
     // void _setup_stackframe(size_t stack_size);
     void _postcall(size_t stack_bytes);
     void _jump(DataLoc l, Opdata d);
-    bool _run_next();
+    bool _run_next(VMFixedStack& globals);
 
     template<typename T>
-    T _getv(DataLoc l, Opdata d) {
+    T _getv(VMFixedStack& globals, DataLoc l, Opdata d) {
         if (l == DataLoc::G) {
             //std::cout << "getglobal " << std::get<GlobalAddress>(d).addr << "\n";
-            return *data.at<T>(std::get<GlobalAddress>(d).addr);
+            return *globals.at<T>(std::get<GlobalAddress>(d).addr);
         } else if (l == DataLoc::L) {
             //std::cout << "base " << _base << "\n";
             //std::cout << "getlocal " << _base+std::get<LocalAddress>(d).posoffset << "\n";
@@ -48,10 +37,10 @@ private:
         return std::get<T>(d);
     }
     template<typename T>
-    void _setv(T v, DataLoc l, Opdata d) {
+    void _setv(VMFixedStack& globals, T v, DataLoc l, Opdata d) {
         if (l == DataLoc::G) {
             //std::cout << "setglobal " << std::get<GlobalAddress>(d).addr << " = " << v << "\n";
-            *data.at<T>(std::get<GlobalAddress>(d).addr) = v;
+            *globals.at<T>(std::get<GlobalAddress>(d).addr) = v;
         } else if (l == DataLoc::L) {
             //std::cout << "base " << _base << "\n";
             //std::cout << "setlocal " << _base+std::get<LocalAddress>(d).posoffset << " = " << v << "\n";
@@ -63,82 +52,82 @@ private:
     }
 
     template<typename NT>
-    NT aluadd(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    NT aluadd(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         NT r = a + b;
         //std::cout << a << " + " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    NT alusub(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    NT alusub(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         NT r = a - b;
         //std::cout << a << " - " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    NT alumul(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    NT alumul(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         NT r = a * b;
         //std::cout << a << " * " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    NT aludiv(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    NT aludiv(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         NT r = a / b;
         //std::cout << a << " / " << b << " = " << r << "\n";
         return r;
     }
 
     template<typename NT>
-    bool lt(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    bool lt(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         bool r = a < b;
         //std::cout << a << " < " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    bool le(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    bool le(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         bool r = a <= b;
         //std::cout << a << " <= " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    bool gt(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    bool gt(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         bool r = a > b;
         //std::cout << a << " > " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    bool ge(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    bool ge(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         bool r = a >= b;
         //std::cout << a << " >= " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    bool eq(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    bool eq(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         bool r = a == b;
         //std::cout << a << " == " << b << " = " << r << "\n";
         return r;
     }
     template<typename NT>
-    bool ne(const Opcode& oc) {
-        NT a = _getv<NT>(oc.opcode.l1, oc.p1);
-        NT b = _getv<NT>(oc.opcode.l2, oc.p2);
+    bool ne(VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(globals, oc.opcode.l1, oc.p1);
+        NT b = _getv<NT>(globals, oc.opcode.l2, oc.p2);
         bool r = a != b;
         //std::cout << a << " != " << b << " = " << r << "\n";
         return r;

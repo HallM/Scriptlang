@@ -6,23 +6,17 @@ VM::VM(size_t stack_size, const Program program)
     : data(stack_size), _exec_stack(1<<16), _program(program), _instruction_index(0), _base(0)
 {
     _exec_stack_top = 0;
-    _reserve_globals(_program.globals_size());
 }
 
 VM::~VM() {}
 
 void
-VM::run_method(size_t ip, size_t param_bytes, size_t stack_bytes) {
+VM::run_method(VMFixedStack& globals, size_t ip, size_t param_bytes, size_t stack_bytes) {
     size_t s = _program.get_code().size();
     _instruction_index = s;
     _precall(param_bytes, stack_bytes);
     _instruction_index = ip;
-    while (_instruction_index < s && _run_next()) {}
-}
-
-void
-VM::_reserve_globals(size_t stack_size) {
-    data.reserve(stack_size);
+    while (_instruction_index < s && _run_next(globals)) {}
 }
 
 void
@@ -73,7 +67,7 @@ VM::_jump(DataLoc l, Opdata d) {
 }
 
 bool
-VM::_run_next() {
+VM::_run_next(VMFixedStack& globals) {
     const auto& oc = _program.get_code()[_instruction_index];
     //std::cout << _instruction_index << " << " << (int)oc.opcode.op << "\n";
     _instruction_index++;
@@ -84,43 +78,43 @@ VM::_run_next() {
         break;
     }
     case Bytecode::f32Set: {
-        _setv<float>(_getv<float>(oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
+        _setv<float>(globals, _getv<float>(globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
         break;
     }
     case Bytecode::f32Add: {
-        _setv<float>(aluadd<float>(oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, aluadd<float>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::f32Sub: {
-        _setv<float>(alusub<float>(oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, alusub<float>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::f32Mul: {
-        _setv<float>(alumul<float>(oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, alumul<float>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::f32Div: {
-        _setv<float>(aludiv<float>(oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, aludiv<float>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Set: {
-        _setv<int>(_getv<int>(oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
+        _setv<int>(globals, _getv<int>(globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
         break;
     }
     case Bytecode::s32Add: {
-        _setv<int>(aluadd<int>(oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, aluadd<int>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Sub: {
-        _setv<int>(alusub<int>(oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, alusub<int>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Mul: {
-        _setv<int>(alumul<int>(oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, alumul<int>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Div: {
-        _setv<int>(aludiv<int>(oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, aludiv<int>(globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
 
@@ -154,37 +148,37 @@ VM::_run_next() {
     }
 
     case Bytecode::f32JLT: {
-        if (lt<float>(oc)) {
+        if (lt<float>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JLE: {
-        if (le<float>(oc)) {
+        if (le<float>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGT: {
-        if (gt<float>(oc)) {
+        if (gt<float>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGE: {
-        if (ge<float>(oc)) {
+        if (ge<float>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JEQ: {
-        if (eq<float>(oc)) {
+        if (eq<float>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JNE: {
-        if (ne<float>(oc)) {
+        if (ne<float>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
@@ -192,37 +186,37 @@ VM::_run_next() {
 
 
     case Bytecode::s32JLT: {
-        if (lt<int>(oc)) {
+        if (lt<int>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JLE: {
-        if (le<int>(oc)) {
+        if (le<int>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGT: {
-        if (gt<int>(oc)) {
+        if (gt<int>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGE: {
-        if (ge<int>(oc)) {
+        if (ge<int>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JEQ: {
-        if (eq<int>(oc)) {
+        if (eq<int>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JNE: {
-        if (ne<int>(oc)) {
+        if (ne<int>(globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;

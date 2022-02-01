@@ -6,6 +6,12 @@
 Program::Program() : _globals_size(0) {}
 Program::~Program() {}
 
+std::shared_ptr<VMFixedStack>
+Program::generate_state() {
+    auto size = globals_size();
+    return std::make_shared<VMFixedStack>(size);
+}
+
 void
 Program::add_builtin(std::string name, IRunnable* runnable) {
     size_t addr = _builtins.size();
@@ -21,22 +27,22 @@ Program::add_method(std::string name, std::vector<Opcode> method_code) {
 }
 
 size_t
-Program::get_global(std::string name) const {
+Program::get_global_address(std::string name) const {
     return _global_addresses.at(name);
 }
 
 size_t
-Program::get_builtin(std::string name) const {
+Program::get_builtin_address(std::string name) const {
     return _builtin_addresses.at(name);
 }
 
 size_t
-Program::get_method(std::string name) const {
+Program::get_method_address(std::string name) const {
     return _function_addresses.at(name);
 }
 
 size_t
-Program::current_method() const {
+Program::current_method_address() const {
     return _code.size();
 }
 

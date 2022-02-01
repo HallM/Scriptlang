@@ -21,7 +21,7 @@ int main() {
         std::cout << a << "\n";
     });
 
-    float iterate_to = 1000000.0f; // 1000000.0f
+    float iterate_to = 1.0f; // 1000000.0f
 
     // the lua application including compilation was 1 second 249ms (1.25s)
     // this app was 1.32s. Lua 0.0031ms per loop. THis 0.0033ms per loop.
@@ -68,7 +68,7 @@ int main() {
                GlobalAddress{0}, LocalAddress{4}, 0.0f),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("Average")}, LocalAddress{8}, LocalAddress{4}),
+               GlobalAddress{program.get_method_address("Average")}, LocalAddress{8}, LocalAddress{4}),
     //    Opcode(Bytecode::CallExtern,
     //           DataLoc::G, DataLoc::L, DataLoc::L,
     //           GlobalAddress{0}, LocalAddress{0}, LocalAddress{0}),
@@ -95,7 +95,7 @@ int main() {
                GlobalAddress{0}, 2.0f, LocalAddress{4}),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("Average")}, LocalAddress{8}, LocalAddress{4}),
+               GlobalAddress{program.get_method_address("Average")}, LocalAddress{8}, LocalAddress{4}),
     //    Opcode(Bytecode::CallExtern,
     //           DataLoc::G, DataLoc::L, DataLoc::L,
     //           GlobalAddress{0}, LocalAddress{0}, LocalAddress{0}),
@@ -151,13 +151,13 @@ int main() {
                LocalAddress{0}, (int)1, LocalAddress{4}),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.current_method()}, LocalAddress{4}, LocalAddress{4}),
+               GlobalAddress{program.current_method_address()}, LocalAddress{4}, LocalAddress{4}),
         Opcode(Bytecode::s32JNE,
                DataLoc::L, DataLoc::C, DataLoc::L,
                LocalAddress{0}, (int)5, LocalAddress{2}),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("func5")}, LocalAddress{0}, LocalAddress{8}),
+               GlobalAddress{program.get_method_address("func5")}, LocalAddress{0}, LocalAddress{8}),
         Opcode(Bytecode::Jump,
                DataLoc::L, DataLoc::C, DataLoc::C,
                LocalAddress{10}, (int)0, (int)0),
@@ -166,7 +166,7 @@ int main() {
                LocalAddress{0}, (int)4, LocalAddress{2}),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("func4")}, LocalAddress{0}, LocalAddress{8}),
+               GlobalAddress{program.get_method_address("func4")}, LocalAddress{0}, LocalAddress{8}),
         Opcode(Bytecode::Jump,
                DataLoc::L, DataLoc::C, DataLoc::C,
                LocalAddress{7}, (int)0, (int)0),
@@ -175,7 +175,7 @@ int main() {
                LocalAddress{0}, (int)3, LocalAddress{2}),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("func3")}, LocalAddress{0}, LocalAddress{0}),
+               GlobalAddress{program.get_method_address("func3")}, LocalAddress{0}, LocalAddress{0}),
         Opcode(Bytecode::Jump,
                DataLoc::L, DataLoc::C, DataLoc::C,
                LocalAddress{4}, (int)0, (int)0),
@@ -184,7 +184,7 @@ int main() {
                LocalAddress{0}, (int)2, LocalAddress{2}),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("func2")}, LocalAddress{0}, LocalAddress{0}),
+               GlobalAddress{program.get_method_address("func2")}, LocalAddress{0}, LocalAddress{0}),
         Opcode(Bytecode::Jump,
                DataLoc::L, DataLoc::C, DataLoc::C,
                LocalAddress{1}, (int)0, (int)0),
@@ -225,7 +225,7 @@ int main() {
                LocalAddress{0}, LocalAddress{12}, 0.0f),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("Average")}, LocalAddress{8}, LocalAddress{4}),
+               GlobalAddress{program.get_method_address("Average")}, LocalAddress{8}, LocalAddress{4}),
         // base+12 result isnt used
     //    Opcode(Bytecode::CallExtern,
     //           DataLoc::G, DataLoc::L, DataLoc::C,
@@ -235,7 +235,7 @@ int main() {
                5, LocalAddress{12}, 0.0f),
         Opcode(Bytecode::Call,
                DataLoc::G, DataLoc::L, DataLoc::L,
-               GlobalAddress{program.get_method("Recursion")}, LocalAddress{4}, LocalAddress{4}),
+               GlobalAddress{program.get_method_address("Recursion")}, LocalAddress{4}, LocalAddress{4}),
         Opcode(Bytecode::f32JLE,
                DataLoc::G, DataLoc::C, DataLoc::L,
                GlobalAddress{0}, 100.0f, LocalAddress{1}),
@@ -254,9 +254,10 @@ int main() {
         });
     VM* m = new VM(VMSTACK_PAGE_SIZE, program);
 
-    m->run_method(program.get_method("main"), 0, 16);
+    std::shared_ptr<VMFixedStack> globals = program.generate_state();
+    m->run_method(*globals, program.get_method_address("main"), 0, 16);
 
-    float N = m->get_value<float>(0);
+    float N = *globals->at<float>(program.get_global_address("N"));
     std::cout << "N = " << N << "\n";
 
     auto dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
