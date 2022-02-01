@@ -57,13 +57,13 @@ VM::_postcall(size_t stack_bytes) {
 void
 VM::_jump(DataLoc l, Opdata d) {
     if (l == DataLoc::P) {
-        _instruction_index -= std::get<ParamAddress>(d).negoffset;
+        _instruction_index -= d.param_address;
     }
     else if (l == DataLoc::L) {
-        _instruction_index += std::get<LocalAddress>(d).posoffset;
+        _instruction_index += d.local_address;
     }
     else if (l == DataLoc::G) {
-        _instruction_index = std::get<GlobalAddress>(d).addr;
+        _instruction_index = d.global_address;
     }
 }
 
@@ -120,7 +120,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     }
 
     case Bytecode::CallExtern: {
-        size_t fn = std::get<GlobalAddress>(oc.p1).addr;
+        size_t fn = oc.p1.global_address;
         IRunnable* r = program.get_builtins()[fn];
         r->invoke(data, data.size());
         break;
@@ -131,14 +131,14 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     //    break;
     //}
     case Bytecode::Call: {
-        size_t param_bytes = std::get<LocalAddress>(oc.p2).posoffset;
-        size_t stack_bytes = std::get<LocalAddress>(oc.p3).posoffset;
+        size_t param_bytes = oc.p2.local_address;
+        size_t stack_bytes = oc.p3.local_address;
         _precall(param_bytes, stack_bytes);
-        _instruction_index = std::get<GlobalAddress>(oc.p1).addr;
+        _instruction_index = oc.p1.global_address;
         break;
     }
     case Bytecode::Ret: {
-        size_t stack_bytes = std::get<LocalAddress>(oc.p3).posoffset;
+        size_t stack_bytes = oc.p3.local_address;
         _postcall(stack_bytes);
         break;
     }

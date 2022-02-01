@@ -1,6 +1,6 @@
 #pragma once
 
-#include <variant>
+// #include <variant>
 
 enum class Bytecode: unsigned int {
     Break, // _ _ _
@@ -78,16 +78,29 @@ enum class DataLoc: unsigned int {
     // PI,
 };
 
-struct GlobalAddress {
-    size_t addr;
+//struct GlobalAddress {
+//    size_t addr;
+//};
+//struct LocalAddress {
+//    size_t posoffset;
+//};
+//struct ParamAddress {
+//    size_t negoffset;
+//};
+//typedef std::variant<GlobalAddress, LocalAddress, ParamAddress, int, float> Opdata;
+
+union Opdata {
+    size_t global_address;
+    size_t local_address;
+    size_t param_address;
+    int const_s32;
+    float const_f32;
 };
-struct LocalAddress {
-    size_t posoffset;
-};
-struct ParamAddress {
-    size_t negoffset;
-};
-typedef std::variant<GlobalAddress, LocalAddress, ParamAddress, int, float> Opdata;
+Opdata GlobalAddress(size_t addr);
+Opdata LocalAddress(size_t addr);
+Opdata ParamAddress(size_t addr);
+Opdata ConstData(int v);
+Opdata ConstData(float v);
 
 struct CombinedOperation {
     // 32 bits almost fully allocated.

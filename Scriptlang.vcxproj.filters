@@ -30,6 +30,9 @@
     <ClCompile Include="VMStack.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="VMBytecode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Program.h">

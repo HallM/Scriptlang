@@ -6,6 +6,7 @@
 #include "Program.h"
 
 #include <iostream>
+#include <type_traits>
 
 class VM {
 public:
@@ -25,26 +26,32 @@ private:
     T _getv(VMFixedStack& globals, DataLoc l, Opdata d) {
         if (l == DataLoc::G) {
             //std::cout << "getglobal " << std::get<GlobalAddress>(d).addr << "\n";
-            return *globals.at<T>(std::get<GlobalAddress>(d).addr);
+            return *globals.at<T>(d.global_address);
         } else if (l == DataLoc::L) {
             //std::cout << "base " << _base << "\n";
             //std::cout << "getlocal " << _base+std::get<LocalAddress>(d).posoffset << "\n";
-            return *data.at<T>(_base + std::get<LocalAddress>(d).posoffset);
+            return *data.at<T>(_base + d.local_address);
         //} else if (l == DataLoc::P) {
         //    //std::cout << "getparam " << base-std::get<ParamAddress>(d).negoffset << "\n";
         //    return *data.at<T>(_base - std::get<ParamAddress>(d).negoffset);
         }
-        return std::get<T>(d);
+        if (std::is_same<T, float>::value) {
+            return (T)d.const_f32;
+        }
+        if (std::is_same<T, int>::value) {
+            return (T)d.const_s32;
+        }
+        return (T)0;
     }
     template<typename T>
     void _setv(VMFixedStack& globals, T v, DataLoc l, Opdata d) {
         if (l == DataLoc::G) {
             //std::cout << "setglobal " << std::get<GlobalAddress>(d).addr << " = " << v << "\n";
-            *globals.at<T>(std::get<GlobalAddress>(d).addr) = v;
+            *globals.at<T>(d.global_address) = v;
         } else if (l == DataLoc::L) {
             //std::cout << "base " << _base << "\n";
             //std::cout << "setlocal " << _base+std::get<LocalAddress>(d).posoffset << " = " << v << "\n";
-            *data.at<T>(_base + std::get<LocalAddress>(d).posoffset) = v;
+            *data.at<T>(_base + d.local_address) = v;
         //} else if (l == DataLoc::P) {
         //    //std::cout << "setparam " << base-std::get<ParamAddress>(d).negoffset << " = " << v << "\n";
         //    *data.at<T>(_base - std::get<ParamAddress>(d).negoffset) = v;
