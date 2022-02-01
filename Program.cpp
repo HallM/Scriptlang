@@ -67,3 +67,8 @@ const std::vector<Opcode>&
 Program::get_code() const {
     return _code;
 }
+
+const Opcode&
+Program::get_opcode(size_t index) const {
+    return _code.at(index);
+}

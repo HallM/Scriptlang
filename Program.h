@@ -49,6 +49,8 @@ public:
     const std::vector<IRunnable*>& get_builtins() const;
     const std::vector<Opcode>& get_code() const;
 
+    const Opcode& get_opcode(size_t index) const;
+
 private:
     size_t _globals_size;
     std::vector<IRunnable*> _builtins;

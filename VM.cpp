@@ -69,7 +69,7 @@ VM::_jump(DataLoc l, Opdata d) {
 
 bool
 VM::_run_next(const Program& program, VMFixedStack& globals) {
-    const auto& oc = program.get_code()[_instruction_index];
+    const auto& oc = program.get_opcode(_instruction_index);
     //std::cout << _instruction_index << " << " << (int)oc.opcode.op << "\n";
     _instruction_index++;
 
