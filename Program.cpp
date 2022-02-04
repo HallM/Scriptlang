@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iterator>
 
-Program::Program() : _globals_size(0) {}
+Program::Program(size_t const_bytes) : _globals_size(0), _constants(const_bytes) {}
 Program::~Program() {}
 
 std::shared_ptr<VMFixedStack>
@@ -31,6 +31,11 @@ Program::add_method(std::string name, size_t param_size, size_t stack_size, std:
 size_t
 Program::get_global_address(std::string name) const {
     return _global_addresses.at(name);
+}
+
+size_t
+Program::get_constant_address(std::string name) const {
+    return _constant_addresses.at(name);
 }
 
 size_t

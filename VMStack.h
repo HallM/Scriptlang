@@ -36,6 +36,11 @@ public:
         return reinterpret_cast<T*>((char*)_data.stack + address);
     }
 
+    template <typename T>
+    const T cvalue(size_t address) const {
+        return *(reinterpret_cast<T*>((char*)_data.stack + address));
+    }
+
 private:
     VMStackPage _data;
     size_t _len;

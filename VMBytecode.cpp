@@ -12,20 +12,26 @@ Opdata LocalAddress(size_t addr) {
     return ret;
 }
 
-Opdata ParamAddress(size_t addr) {
+Opdata BackwardJump(size_t addr) {
     Opdata ret;
-    ret.param_address = addr;
+    ret.backward_jump = addr;
     return ret;
 }
 
-Opdata ConstData(int v) {
+Opdata ForwardJump(size_t addr) {
     Opdata ret;
-    ret.const_s32 = v;
+    ret.forward_jump = addr;
     return ret;
 }
 
-Opdata ConstData(float v) {
+Opdata ExactJump(size_t addr) {
     Opdata ret;
-    ret.const_f32 = v;
+    ret.exact_jump = addr;
+    return ret;
+}
+
+Opdata ConstAddress(size_t addr) {
+    Opdata ret;
+    ret.constant_address = addr;
     return ret;
 }

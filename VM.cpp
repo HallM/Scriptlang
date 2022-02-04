@@ -2,6 +2,75 @@
 
 #include <iostream>
 
+//
+// Items left:
+// 0. returned values (solidified)
+// 1. objects
+// 2. refs
+// 3. arrays
+// 4. strings
+// 5. FFI with the above items
+// 6. bytecode finalization
+// 7. AST -> bytecode + linker
+// 8. text -> AST
+// 
+// Returns
+// I'm making a different assumption. If you've defined a function to return,
+// you want that return value. So callee always allocates return space.
+// Re-using param stack?
+// Pros: less stack usage. maybe.
+// Cons: may require copying params.
+//       more complex: have to worry about return-size > param size.
+// 
+// Objects
+// An object on a stack is just values back to back.
+// accessing a value of one object is no different than accessing any value
+// Same could be said for arrays... sorta. cept we need refs/indexing
+// Passing an object by value will just copy the ENTIRE object over.
+// We may want a more efficient memcopy.
+// 
+// Object Methods
+// It's just a normal method, but the first param is a ref to the object
+// 
+// Refs
+// Need indirect registers.
+// register stores the size_t address of the actual value
+// Then we need a DataLoc for indirect. That's about it.
+// 
+// Arrays
+// Stack allocated aka locals are similar to objects.
+// Shoot, we can even preallocated fixed access.
+// But indexed via variable access will require indirect access.
+// Option 1: add the address(ref) of the array start + the offset as an u32Add
+// Option 2: add a bytecode type specifically for doing this.
+// Personally I am leaning option 1, simplest. 2 requires potentially LARGE bytecodes.
+// 
+// Strings
+// They are objects with an array on the inside.
+// Depending on how C++ u32string works, I may be ok having my own string type
+// Not null terminated, but an object{len: u32, data: [u32; len]}
+// Maybe different string types (ascii only u8string | unicode u32string)
+// After all, a huge number of games could get by on ascii-only.
+// But this should be mappable to, maybe built in, C++
+// 
+// 
+// FFI
+// Functions are figured out. Just need to collect metadata for compiler.
+// 
+// Objects
+// The data members, types, sizes, and offsets are required.
+// Adding an object type to compiler makes the object available under than name.
+// No matching def required in language.
+// Just going to avoid having to duplicate + marshalling
+// 
+// Should we ever have the ability to map a script object to a C++ object?
+// I'm thinking no. The C++ type should exist and just generate the internal type.
+// 
+// Object methods
+// The functions are registered similar to a method, but as an obj method.
+// Nothing more is needed. C++ already can do invoke on a class method.
+//
+
 VM::VM(size_t stack_size)
     : data(stack_size), _exec_stack(1<<16), _instruction_index(0), _base(0)
 {
@@ -56,14 +125,14 @@ VM::_postcall(size_t stack_bytes) {
 
 void
 VM::_jump(DataLoc l, Opdata d) {
-    if (l == DataLoc::P) {
-        _instruction_index -= d.param_address;
+    if (l == DataLoc::O) {
+        _instruction_index += d.forward_jump;
     }
-    else if (l == DataLoc::L) {
-        _instruction_index += d.local_address;
+    else if (l == DataLoc::R) {
+        _instruction_index -= d.backward_jump;
     }
     else if (l == DataLoc::G) {
-        _instruction_index = d.global_address;
+        _instruction_index = d.exact_jump;
     }
 }
 
@@ -79,43 +148,43 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::f32Set: {
-        _setv<float>(globals, _getv<float>(globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
+        _setv<float>(globals, _getv<float>(program, globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
         break;
     }
     case Bytecode::f32Add: {
-        _setv<float>(globals, aluadd<float>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, aluadd<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::f32Sub: {
-        _setv<float>(globals, alusub<float>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, alusub<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::f32Mul: {
-        _setv<float>(globals, alumul<float>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, alumul<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::f32Div: {
-        _setv<float>(globals, aludiv<float>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, aludiv<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Set: {
-        _setv<int>(globals, _getv<int>(globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
+        _setv<int>(globals, _getv<int>(program, globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
         break;
     }
     case Bytecode::s32Add: {
-        _setv<int>(globals, aluadd<int>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, aluadd<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Sub: {
-        _setv<int>(globals, alusub<int>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, alusub<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Mul: {
-        _setv<int>(globals, alumul<int>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, alumul<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
     case Bytecode::s32Div: {
-        _setv<int>(globals, aludiv<int>(globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, aludiv<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
         break;
     }
 
@@ -149,37 +218,37 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     }
 
     case Bytecode::f32JLT: {
-        if (lt<float>(globals, oc)) {
+        if (lt<float>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JLE: {
-        if (le<float>(globals, oc)) {
+        if (le<float>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGT: {
-        if (gt<float>(globals, oc)) {
+        if (gt<float>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGE: {
-        if (ge<float>(globals, oc)) {
+        if (ge<float>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JEQ: {
-        if (eq<float>(globals, oc)) {
+        if (eq<float>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JNE: {
-        if (ne<float>(globals, oc)) {
+        if (ne<float>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
@@ -187,37 +256,37 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
 
 
     case Bytecode::s32JLT: {
-        if (lt<int>(globals, oc)) {
+        if (lt<int>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JLE: {
-        if (le<int>(globals, oc)) {
+        if (le<int>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGT: {
-        if (gt<int>(globals, oc)) {
+        if (gt<int>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGE: {
-        if (ge<int>(globals, oc)) {
+        if (ge<int>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JEQ: {
-        if (eq<int>(globals, oc)) {
+        if (eq<int>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JNE: {
-        if (ne<int>(globals, oc)) {
+        if (ne<int>(program, globals, oc)) {
             _jump(oc.opcode.l3, oc.p3);
         }
         break;

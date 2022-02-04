@@ -1,7 +1,5 @@
 #pragma once
 
-// #include <variant>
-
 enum class Bytecode: unsigned int {
     Break, // _ _ _
 
@@ -63,12 +61,14 @@ enum class Bytecode: unsigned int {
 enum class DataLoc: unsigned int {
     // c for "constant", just a value direct. the opcode determines type.
     C,
-    // g for "global". any address in data
+    // g for "global". accesses globals or could be an exact jump
     G,
-    // l for "local". offset by the base ptr
-    L,
-    // p for "param". negative offset by the base ptr
-    P,
+    // o for "offset". this is like a local var (to the base) or foward jump (to the IP)
+    O,
+    // r for reverse offset. backwards jumps only. no reverse local vars.
+    R,
+    // indirect: a local stores the exact (stack) address
+    // I,
 
     // global indirection
     // GI,
@@ -78,29 +78,21 @@ enum class DataLoc: unsigned int {
     // PI,
 };
 
-//struct GlobalAddress {
-//    size_t addr;
-//};
-//struct LocalAddress {
-//    size_t posoffset;
-//};
-//struct ParamAddress {
-//    size_t negoffset;
-//};
-//typedef std::variant<GlobalAddress, LocalAddress, ParamAddress, int, float> Opdata;
-
 union Opdata {
     size_t global_address;
+    size_t constant_address;
     size_t local_address;
-    size_t param_address;
-    int const_s32;
-    float const_f32;
+    size_t indirect_address;
+    size_t backward_jump;
+    size_t forward_jump;
+    size_t exact_jump;
 };
 Opdata GlobalAddress(size_t addr);
 Opdata LocalAddress(size_t addr);
-Opdata ParamAddress(size_t addr);
-Opdata ConstData(int v);
-Opdata ConstData(float v);
+Opdata BackwardJump(size_t addr);
+Opdata ForwardJump(size_t addr);
+Opdata ExactJump(size_t addr);
+Opdata ConstAddress(size_t addr);
 
 struct CombinedOperation {
     // 32 bits almost fully allocated.
