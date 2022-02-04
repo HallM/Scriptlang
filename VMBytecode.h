@@ -105,17 +105,25 @@ struct CombinedOperation {
     CombinedOperation(Bytecode o, DataLoc a, DataLoc b, DataLoc c) : op(o), l1(a), l2(b), l3(c) {}
 };
 
-class Opcode {
+struct Opcode {
 public:
-    const CombinedOperation opcode;
-    const Opdata p1;
-    const Opdata p2;
-    const Opdata p3;
+    Bytecode op:10;
+    DataLoc l1:5;
+    DataLoc l2:5;
+    DataLoc l3:5;
+    size_t p1:13;
+    size_t p2:13;
+    size_t p3:13;
 
     Opcode(
-        Bytecode o, DataLoc l1, DataLoc l2, DataLoc l3, Opdata a, Opdata b, Opdata c
+        Bytecode o, DataLoc il1, DataLoc il2, DataLoc il3, size_t a, size_t b, size_t c
     )
-    : opcode(o, l1, l2, l3),
+    : 
+      //opcode(o, l1, l2, l3),
+      op(o),
+      l1(il1),
+      l2(il2),
+      l3(il3),
       p1(a),
       p2(b),
       p3(c) {}

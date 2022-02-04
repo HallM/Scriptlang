@@ -124,72 +124,72 @@ VM::_postcall(size_t stack_bytes) {
 }
 
 void
-VM::_jump(DataLoc l, Opdata d) {
+VM::_jump(DataLoc l, size_t d) {
     if (l == DataLoc::O) {
-        _instruction_index += d.forward_jump;
+        _instruction_index += d;
     }
     else if (l == DataLoc::R) {
-        _instruction_index -= d.backward_jump;
+        _instruction_index -= d;
     }
     else if (l == DataLoc::G) {
-        _instruction_index = d.exact_jump;
+        _instruction_index = d;
     }
 }
 
 bool
 VM::_run_next(const Program& program, VMFixedStack& globals) {
     const auto& oc = program.get_opcode(_instruction_index);
-    //std::cout << _instruction_index << " << " << (int)oc.opcode.op << "\n";
+    //std::cout << _instruction_index << " << " << (int)oc.op << "\n";
     _instruction_index++;
 
-    switch (oc.opcode.op) {
+    switch (oc.op) {
     case Bytecode::Break: {
         return false;
         break;
     }
     case Bytecode::f32Set: {
-        _setv<float>(globals, _getv<float>(program, globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
+        _setv<float>(globals, _getv<float>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
     }
     case Bytecode::f32Add: {
-        _setv<float>(globals, aluadd<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, aluadd<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32Sub: {
-        _setv<float>(globals, alusub<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, alusub<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32Mul: {
-        _setv<float>(globals, alumul<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, alumul<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32Div: {
-        _setv<float>(globals, aludiv<float>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<float>(globals, aludiv<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Set: {
-        _setv<int>(globals, _getv<int>(program, globals, oc.opcode.l1, oc.p1), oc.opcode.l2, oc.p2);
+        _setv<int>(globals, _getv<int>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
     }
     case Bytecode::s32Add: {
-        _setv<int>(globals, aluadd<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, aluadd<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Sub: {
-        _setv<int>(globals, alusub<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, alusub<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Mul: {
-        _setv<int>(globals, alumul<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, alumul<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Div: {
-        _setv<int>(globals, aludiv<int>(program, globals, oc) , oc.opcode.l3, oc.p3);
+        _setv<int>(globals, aludiv<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
 
     case Bytecode::CallExtern: {
-        size_t fn = oc.p1.global_address;
+        size_t fn = oc.p1;
         IRunnable* r = program.get_builtins()[fn];
         r->invoke(data, data.size());
         break;
@@ -200,56 +200,56 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     //    break;
     //}
     case Bytecode::Call: {
-        size_t param_bytes = oc.p2.local_address;
-        size_t stack_bytes = oc.p3.local_address;
+        size_t param_bytes = oc.p2;
+        size_t stack_bytes = oc.p3;
         _precall(param_bytes, stack_bytes);
-        _instruction_index = oc.p1.global_address;
+        _instruction_index = oc.p1;
         break;
     }
     case Bytecode::Ret: {
-        size_t stack_bytes = oc.p3.local_address;
+        size_t stack_bytes = oc.p3;
         _postcall(stack_bytes);
         break;
     }
 
     case Bytecode::Jump: {
-        _jump(oc.opcode.l1, oc.p1);
+        _jump(oc.l1, oc.p1);
         break;
     }
 
     case Bytecode::f32JLT: {
         if (lt<float>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JLE: {
         if (le<float>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGT: {
         if (gt<float>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGE: {
         if (ge<float>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JEQ: {
         if (eq<float>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JNE: {
         if (ne<float>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
@@ -257,37 +257,37 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
 
     case Bytecode::s32JLT: {
         if (lt<int>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JLE: {
         if (le<int>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGT: {
         if (gt<int>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGE: {
         if (ge<int>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JEQ: {
         if (eq<int>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JNE: {
         if (ne<int>(program, globals, oc)) {
-            _jump(oc.opcode.l3, oc.p3);
+            _jump(oc.l3, oc.p3);
         }
         break;
     }
