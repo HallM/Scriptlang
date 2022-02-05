@@ -19,52 +19,81 @@ private:
     void _precall(size_t param_bytes, size_t stack_bytes);
     // void _setup_stackframe(size_t stack_size);
     void _postcall(size_t stack_bytes);
-    void _jump(DataLoc l, size_t d);
+    void _jump(const Program& program, VMFixedStack& globals, DataLoc l, size_t d);
     bool _run_next(const Program& program, VMFixedStack& globals);
 
     template<typename T>
-    T _table_value(const Program& program, VMFixedStack& globals, DataLoc l, size_t address) {
-        switch (l & LocTableBits) {
-            case LocTableConst:
-                return program.get_constant<T>(address);
-            case LocTableGlobal:
-                return *globals.at<T>(address);
-            case LocTableLocal:
-                return *data.at<T>(_base + address);
-            case LocTableBack:
-                return *data.at<T>(_base - address);
+    T _table_value(const Program& program, VMFixedStack& globals, size_t address) {
+        const size_t page = (address & ParamAddressPageMask) >> ParamAddressPageBit;
+        const size_t offset = address & ParamAddressOffsetMask;
+        switch (page) {
+            case 0: {
+                //std::cout << "get constant " << offset << "\n";
+                return program.get_constant<T>(offset);
+            }
+            case 1: {
+                //std::cout << "get global " << offset << "\n";
+                return *globals.at<T>(offset);
+            }
+            case 2: {
+                //std::cout << "get +offset " << offset << ": " << _base+offset << "\n";
+                return *data.at<T>(_base + offset);
+            }
+            default: {
+                //std::cout << "get -offset " << offset << ": " << _base-offset << "\n";
+                return *data.at<T>(_base - offset);
+            }
         }
-        return (T)address;
+    }
+    template<typename T>
+    T* _table_ptr(VMFixedStack& globals, size_t address) {
+        const size_t page = (address & ParamAddressPageMask) >> ParamAddressPageBit;
+        const size_t offset = address & ParamAddressOffsetMask;
+
+        switch (page) {
+            case 0: {
+                //std::cout << "try set constant (bad!) " << offset << "\n";
+                return nullptr;
+            }
+            case 1: {
+                //std::cout << "set global " << offset << "\n";
+                return globals.at<T>(offset);
+            }
+            case 2: {
+                //std::cout << "set +offset " << offset << ": " << _base+offset << "\n";
+                return data.at<T>(_base + offset);
+            }
+            default: {
+                //std::cout << "set -offset " << offset << ": " << _base-offset << "\n";
+                return data.at<T>(_base - offset);
+            }
+        }
     }
 
     template<typename T>
-    T _getv(const Program& program, VMFixedStack& globals, DataLoc l, size_t d) {
-        size_t addr = d;
-        DataLoc table = l;
-        if (l & LocIndirectBits) {
-            addr = _table_value<size_t>(program, globals, l, d);
-            table = ((l & LocIndirectBits) >> 2) - 1;
+    T _getv(const Program& program, VMFixedStack& globals, DataLoc l, size_t address) {
+        switch (l) {
+            case LocMemoryIndirect: {
+                T* ptr = _table_value<T*>(program, globals, address);
+                return *ptr;
+            }
+            default: {
+                return _table_value<T>(program, globals, address);
+            }
         }
-        return _table_value<T>(program, globals, table, addr);
     }
     template<typename T>
-    void _setv(const Program& program, VMFixedStack& globals, T v, DataLoc l, size_t d) {
-        size_t addr = d;
-        DataLoc table = l;
-        if (l & LocIndirectBits) {
-            addr = _table_value<size_t>(program, globals, l, d);
-            table = ((l & LocIndirectBits) >> 2) - 1;
-        }
-        switch (table & LocTableBits) {
-            case LocTableGlobal:
-                *globals.at<T>(addr) = v;
+    void _setv(const Program& program, VMFixedStack& globals, T v, DataLoc l, size_t address) {
+        switch (l) {
+            case LocMemoryIndirect: {
+                T* ptr = _table_value<T*>(program, globals, address);
+                *ptr = v;
                 break;
-            case LocTableLocal:
-                *data.at<T>(_base + addr) = v;
+            }
+            default: {
+                *_table_ptr<T>(globals, address) = v;
                 break;
-            case LocTableBack:
-                *data.at<T>(_base - addr) = v;
-                break;
+            }
         }
     }
 

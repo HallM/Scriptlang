@@ -1,9 +1,11 @@
 #pragma once
 
+#include "VMStack.h"
+
 enum class Bytecode: unsigned int {
     Break, // _ _ _
 
-    AddressOf, // [a] [out] _
+    // AddressOf, // [a] [out] _
     s32Set, // [a] [out] _
     f32Set,
 
@@ -61,36 +63,45 @@ enum class Bytecode: unsigned int {
 // we need 4 bits
 typedef unsigned int DataLoc;
 
-const DataLoc LocTableBits = 0x03;
-const DataLoc LocIndirectBits = 0x0C;
+// exact addresses in params work like:
+// bit 17: is stack value (0 for const/global, 1 for stack/jumps). unused by jumps
+// bit 16: 0:const / 1:global, or sign bit for stack/jumps
+// bits 0-15: address
+// for stack, the address is added/subtracted to base to get a final address
+// for jumps, this is added to the IP, using same signbit of stack
+const DataLoc LocMemoryDirect = 0x00;
+// use the above rules to determine the location of what holds a size_t aka void*
+// that points to a real-memory address.
+// for jumps, the indirect value is added to the ip, using same signbit of stack
+const DataLoc LocMemoryIndirect = 0x01;
 
-// which table are we using? 2 bits (bits 0-1)
-// "constant" table.
-const DataLoc LocTableConst = 0x00;
-// "global" table.
-const DataLoc LocTableGlobal = 0x01;
-// "local" stack table, but base+value or ip+value for jumps
-const DataLoc LocTableLocal = 0x02;
-// similar to above, but base-value for stack or ip-value for jumps
-const DataLoc LocTableBack = 0x03;
+// only used for stack/jumps
+const size_t MemoryAddressSignBit = 1 << 15;
 
-// Indirect values. 2 bits (bits 2-3). sign does not apply to the result.
-// indirects means the value (from a table above) contains the address
-// into a table that is specified by the name (Const, Stack, Global)Indirect.
-const DataLoc LocIndirectConst = 0x04;
-const DataLoc LocIndirectGlobal = 0x08;
-// As named, this is not a local (base+addr). it is an exact address into Stack.
-const DataLoc LocIndirectStack = 0x0C;
+// the base+/base- addresses are always stack addresses.
+// TODO: I might add an auto bitshift left 2 bits.
+
+const size_t ParamAddressPageBit = 16;
+const size_t ParamAddressPageMask = 0x03 << ParamAddressPageBit;
+const size_t ParamAddressOffsetMask = (~ParamAddressPageMask) & 0x3FFFF;
+
+size_t ConstantAddress(size_t offset);
+size_t GlobalAddress(size_t offset);
+size_t StackAddressForward(size_t offset);
+size_t StackAddressBackward(size_t offset);
+size_t JumpExact(size_t address);
+size_t JumpOffsetForward(size_t offset);
+size_t JumpOffsetBackward(size_t offset);
 
 struct Opcode {
 public:
     Bytecode op:7;
-    DataLoc l1:4;
-    DataLoc l2:4;
-    DataLoc l3:4;
-    size_t p1:15;
-    size_t p2:15;
-    size_t p3:15;
+    DataLoc l1:1;
+    DataLoc l2:1;
+    DataLoc l3:1;
+    size_t p1:18;
+    size_t p2:18;
+    size_t p3:18;
 
     Opcode(
         Bytecode o, DataLoc il1, DataLoc il2, DataLoc il3, size_t a, size_t b, size_t c

@@ -54,12 +54,12 @@ int main() {
     // 4 stack + 8 param
     program.add_method("Average", 8, 4, {
         Opcode(Bytecode::f32Add,
-               LocTableLocal, LocTableLocal, LocTableLocal,
-               (0), (4), (8)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), StackAddressForward(4), StackAddressForward(8)),
         Opcode(Bytecode::f32Div,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (8), (program.get_constant_address("2.0f")), (0)),
-        Opcode(Bytecode::Ret, LocTableConst, 4)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(8), ConstantAddress(program.get_constant_address("2.0f")), StackAddressForward(0)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 4)
     });
 
     // func5(), 8+0 stack size:
@@ -67,21 +67,21 @@ int main() {
     // base+4: param2
     program.add_method("func5", 0, 8, {
         Opcode(Bytecode::f32Set,
-               LocTableGlobal, LocTableLocal,
-               0, 0),
+               LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), StackAddressForward(0)),
         Opcode(Bytecode::f32Set,
-               LocTableGlobal, LocTableLocal,
-               0, 4),
+               LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), StackAddressForward(4)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("Average")), (8), (4)),
     //    Opcode(Bytecode::CallExtern,
-    //           LocTableGlobal, LocTableLocal, LocTableLocal,
-    //           (0), (0), (0)),
+    //           LocMemoryDirect,
+    //           GlobalAddress(0)),
         Opcode(Bytecode::f32Add,
-               LocTableGlobal, LocTableLocal, LocTableGlobal,
-               (0), (0), (0)),
-        Opcode(Bytecode::Ret, LocTableConst, 8)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), StackAddressForward(0), GlobalAddress(0)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 8)
     });
 
     // func4(), stack 8+0
@@ -89,40 +89,40 @@ int main() {
     // base+4 param1/ret
     program.add_method("func4", 0, 8, {
         Opcode(Bytecode::f32Add,
-               LocTableGlobal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("1.0f")), (0)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), ConstantAddress(program.get_constant_address("1.0f")), StackAddressForward(0)),
         Opcode(Bytecode::f32Add,
-               LocTableGlobal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("2.0f")), (4)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), ConstantAddress(program.get_constant_address("2.0f")), StackAddressForward(4)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("Average")), (8), (4)),
     //    Opcode(Bytecode::CallExtern,
-    //           LocTableGlobal, LocTableLocal, LocTableLocal,
-    //           (0), (0), (0)),
+    //           LocMemoryDirect,
+    //           GlobalAddress(0)),
         Opcode(Bytecode::f32Mul,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("2.0f")), (4)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("2.0f")), StackAddressForward(4)),
         Opcode(Bytecode::f32Add,
-               LocTableGlobal, LocTableLocal, LocTableGlobal,
-               (0), (4), (0)),
-        Opcode(Bytecode::Ret, LocTableConst, 8)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), StackAddressForward(4), GlobalAddress(0)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 8)
     });
 
     // func3(), stack 0
     program.add_method("func3", 0, 0, {
         Opcode(Bytecode::f32Mul,
-               LocTableGlobal, LocTableConst, LocTableGlobal,
-               (0), (program.get_constant_address("2.1f")), (0)),
-        Opcode(Bytecode::Ret, LocTableConst, 0)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), ConstantAddress(program.get_constant_address("2.1f")), GlobalAddress(0)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 0)
      });
 
     // func2(), stack 0
     program.add_method("func2", 0, 0, {
         Opcode(Bytecode::f32Div,
-               LocTableGlobal, LocTableConst, LocTableGlobal,
-               (0), (program.get_constant_address("3.5f")), (0)),
-        Opcode(Bytecode::Ret, LocTableConst, 0)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), ConstantAddress(program.get_constant_address("3.5f")), GlobalAddress(0)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 0)
     });
 
     // Recursion(int), stack 4+4
@@ -130,54 +130,54 @@ int main() {
     // base+4 is param/temp
     program.add_method("Recursion", 4, 4, {
         Opcode(Bytecode::s32JLT,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("1")), (2)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("1")), JumpOffsetForward(2)),
         Opcode(Bytecode::s32Sub,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("1")), (4)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("1")), StackAddressForward(4)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.current_method_address()), (4), (4)),
         Opcode(Bytecode::s32JNE,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("5")), (2)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("5")), JumpOffsetForward(2)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("func5")), (0), (8)),
         Opcode(Bytecode::Jump,
-               LocTableLocal, LocTableConst, LocTableConst,
-               (10), (program.get_constant_address("0")), (program.get_constant_address("0"))),
+               LocMemoryDirect,
+               JumpOffsetForward(10)),
         Opcode(Bytecode::s32JNE,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("4")), (2)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("4")), JumpOffsetForward(2)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("func4")), (0), (8)),
         Opcode(Bytecode::Jump,
-               LocTableLocal, LocTableConst, LocTableConst,
-               (7), (program.get_constant_address("0")), (program.get_constant_address("0"))),
+               LocMemoryDirect,
+               JumpOffsetForward(7)),
         Opcode(Bytecode::s32JNE,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("3")), (2)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("3")), JumpOffsetForward(2)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("func3")), (0), (0)),
         Opcode(Bytecode::Jump,
-               LocTableLocal, LocTableConst, LocTableConst,
-               (4), (program.get_constant_address("0")), (program.get_constant_address("0"))),
+               LocMemoryDirect,
+               JumpOffsetForward(4)),
         Opcode(Bytecode::s32JNE,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("2")), (2)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("2")), JumpOffsetForward(2)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("func2")), (0), (0)),
         Opcode(Bytecode::Jump,
-               LocTableLocal, LocTableConst, LocTableConst,
-               (1), (program.get_constant_address("0")), (program.get_constant_address("0"))),
+               LocMemoryDirect,
+               JumpOffsetForward(1)),
         Opcode(Bytecode::f32Mul,
-               LocTableGlobal, LocTableConst, LocTableGlobal,
-               (0), (program.get_constant_address("1.5f")), (0)),
-        Opcode(Bytecode::Ret, LocTableConst, 4)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), ConstantAddress(program.get_constant_address("1.5f")), GlobalAddress(0)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 4)
     });
 
     // main(), stack size 16+0
@@ -187,49 +187,49 @@ int main() {
     // base+12 is p2
     program.add_method("main", 0, 16, {
         Opcode(Bytecode::f32Set,
-               LocTableConst, LocTableGlobal,
-               (program.get_constant_address("0.0f")), (0)),
+               LocMemoryDirect, LocMemoryDirect,
+               ConstantAddress(program.get_constant_address("0.0f")), GlobalAddress(0)),
         Opcode(Bytecode::f32Set,
-               LocTableConst, LocTableLocal,
-               (program.get_constant_address("0.0f")), (0)),
+               LocMemoryDirect, LocMemoryDirect,
+               ConstantAddress(program.get_constant_address("0.0f")), StackAddressForward(0)),
         Opcode(Bytecode::f32JGT,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("end")), (9)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("end")), JumpOffsetForward(9)),
         Opcode(Bytecode::f32Set,
-               LocTableLocal, LocTableLocal,
-               (0), (8)),
+               LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), StackAddressForward(8)),
     //    Opcode(Bytecode::CallExtern,
-    //           LocTableGlobal, LocTableLocal, LocTableConst,
-    //           (1), (4), 0),
+    //           LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+    //           GlobalAddress(1), (4), 0),
         Opcode(Bytecode::f32Set,
-               LocTableLocal, LocTableLocal,
-               (0), (12)),
+               LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), StackAddressForward(12)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("Average")), (8), (4)),
         // base+12 result isnt used
     //    Opcode(Bytecode::CallExtern,
-    //           LocTableGlobal, LocTableLocal, LocTableConst,
-    //           (0), (0), 0),
+    //           LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+    //           GlobalAddress(0), (0), 0),
         Opcode(Bytecode::s32Set,
-               LocTableConst, LocTableLocal,
-               (program.get_constant_address("5")), (12)),
+               LocMemoryDirect, LocMemoryDirect,
+               ConstantAddress(program.get_constant_address("5")), StackAddressForward(12)),
         Opcode(Bytecode::Call,
-               LocTableGlobal, LocTableLocal, LocTableLocal,
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
                (program.get_method_address("Recursion")), (4), (4)),
         Opcode(Bytecode::f32JLE,
-               LocTableGlobal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("100.0f")), (1)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               GlobalAddress(0), ConstantAddress(program.get_constant_address("100.0f")), JumpOffsetForward(1)),
         Opcode(Bytecode::f32Set,
-               LocTableConst, LocTableGlobal,
-               (program.get_constant_address("0.0f")), (0)),
+               LocMemoryDirect, LocMemoryDirect,
+               ConstantAddress(program.get_constant_address("0.0f")), GlobalAddress(0)),
         Opcode(Bytecode::f32Add,
-               LocTableLocal, LocTableConst, LocTableLocal,
-               (0), (program.get_constant_address("0.25f")), (0)),
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("0.25f")), StackAddressForward(0)),
         Opcode(Bytecode::f32JLE,
-               LocTableLocal, LocTableConst, LocTableBack,
-               (0), (program.get_constant_address("end")), (9)),
-        Opcode(Bytecode::Ret, LocTableConst, 16)
+               LocMemoryDirect, LocMemoryDirect, LocMemoryDirect,
+               StackAddressForward(0), ConstantAddress(program.get_constant_address("end")), JumpOffsetBackward(9)),
+        Opcode(Bytecode::Ret, LocMemoryDirect, 16)
     });
     VM* m = new VM(VMSTACK_PAGE_SIZE);
 

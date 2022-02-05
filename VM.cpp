@@ -124,48 +124,38 @@ VM::_postcall(size_t stack_bytes) {
 }
 
 void
-VM::_jump(DataLoc l, size_t d) {
-    switch (l & LocTableBits) {
-        case LocTableGlobal:
-            _instruction_index = d;
-            break;
-        case LocTableLocal:
-            _instruction_index += d;
-            break;
-        case LocTableBack:
-            _instruction_index -= d;
-            break;
+VM::_jump(const Program& program, VMFixedStack& globals, DataLoc l, size_t address) {
+    if (l == LocMemoryDirect) {
+        const size_t page = (address & ParamAddressPageMask) >> ParamAddressPageBit;
+        const size_t offset = address & ParamAddressOffsetMask;
+        switch (page) {
+            case 0:
+            case 1:
+                _instruction_index = offset;
+                break;
+            case 2:
+                _instruction_index += offset;
+                break;
+            case 3:
+                _instruction_index -= offset;
+                break;
+        }
+    }
+    else {
+        size_t addr = _table_value<size_t>(program, globals, address);
+        _instruction_index = addr;
     }
 }
 
 bool
 VM::_run_next(const Program& program, VMFixedStack& globals) {
     const auto& oc = program.get_opcode(_instruction_index);
-    //std::cout << _instruction_index << " << " << (int)oc.op << "\n";
+    // std::cout << _instruction_index << " << " << (int)oc.op << "\n";
     _instruction_index++;
 
     switch (oc.op) {
     case Bytecode::Break: {
         return false;
-        break;
-    }
-    case Bytecode::AddressOf: {
-        size_t addr = 0;
-        switch (oc.l1 & LocTableBits) {
-            case LocTableConst:
-            case LocTableGlobal:
-                addr = oc.p1;
-                break;
-            case LocTableLocal:
-                addr = _base + oc.p1;
-                break;
-            case LocTableBack:
-                addr = _base - oc.p1;
-                break;
-        }
-
-        // TODO: so which table hmm? HMM?
-        _setv<size_t>(program, globals, addr, oc.l2, oc.p2);
         break;
     }
     case Bytecode::f32Set: {
@@ -215,12 +205,8 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         r->invoke(data, data.size());
         break;
     }
-    //case Bytecode::BeginFrame: {
-    //    auto size = std::get<GlobalAddress>(oc.p1).addr;
-    //    _setup_stackframe(size);
-    //    break;
-    //}
     case Bytecode::Call: {
+        // TODO: indirect calls
         size_t param_bytes = oc.p2;
         size_t stack_bytes = oc.p3;
         _precall(param_bytes, stack_bytes);
@@ -234,43 +220,43 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     }
 
     case Bytecode::Jump: {
-        _jump(oc.l1, oc.p1);
+        _jump(program, globals, oc.l1, oc.p1);
         break;
     }
 
     case Bytecode::f32JLT: {
         if (lt<float>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JLE: {
         if (le<float>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGT: {
         if (gt<float>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JGE: {
         if (ge<float>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JEQ: {
         if (eq<float>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::f32JNE: {
         if (ne<float>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
@@ -278,37 +264,37 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
 
     case Bytecode::s32JLT: {
         if (lt<int>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JLE: {
         if (le<int>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGT: {
         if (gt<int>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JGE: {
         if (ge<int>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JEQ: {
         if (eq<int>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
     case Bytecode::s32JNE: {
         if (ne<int>(program, globals, oc)) {
-            _jump(oc.l3, oc.p3);
+            _jump(program, globals, oc.l3, oc.p3);
         }
         break;
     }
