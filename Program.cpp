@@ -77,3 +77,8 @@ const Opcode&
 Program::get_opcode(size_t index) const {
     return _code.at(index);
 }
+
+const VMFixedStack&
+Program::constants_table() const {
+    return _constants;
+}

@@ -3,6 +3,7 @@
 enum class Bytecode: unsigned int {
     Break, // _ _ _
 
+    AddressOf, // [a] [out] _
     s32Set, // [a] [out] _
     f32Set,
 
@@ -57,69 +58,43 @@ enum class Bytecode: unsigned int {
     s32JNE,
 };
 
-// we have 5 bits, so 32 possible values
-enum class DataLoc: unsigned int {
-    // c for "constant", just a value direct. the opcode determines type.
-    C,
-    // g for "global". accesses globals or could be an exact jump
-    G,
-    // o for "offset". this is like a local var (to the base) or foward jump (to the IP)
-    O,
-    // r for reverse offset. backwards jumps only. no reverse local vars.
-    R,
-    // indirect: a local stores the exact (stack) address
-    // I,
+// we need 4 bits
+typedef unsigned int DataLoc;
 
-    // global indirection
-    // GI,
-    // local indirection
-    // LI,
-    // param indirection
-    // PI,
-};
+const DataLoc LocTableBits = 0x03;
+const DataLoc LocIndirectBits = 0x0C;
 
-union Opdata {
-    size_t global_address;
-    size_t constant_address;
-    size_t local_address;
-    size_t indirect_address;
-    size_t backward_jump;
-    size_t forward_jump;
-    size_t exact_jump;
-};
-Opdata GlobalAddress(size_t addr);
-Opdata LocalAddress(size_t addr);
-Opdata BackwardJump(size_t addr);
-Opdata ForwardJump(size_t addr);
-Opdata ExactJump(size_t addr);
-Opdata ConstAddress(size_t addr);
+// which table are we using? 2 bits (bits 0-1)
+// "constant" table.
+const DataLoc LocTableConst = 0x00;
+// "global" table.
+const DataLoc LocTableGlobal = 0x01;
+// "local" stack table, but base+value or ip+value for jumps
+const DataLoc LocTableLocal = 0x02;
+// similar to above, but base-value for stack or ip-value for jumps
+const DataLoc LocTableBack = 0x03;
 
-struct CombinedOperation {
-    // 32 bits almost fully allocated.
-    // We need ~250 instructions (8 int types, 18 insts; 2 float types, 12 insts; some extras)
-    Bytecode op:16;
-    DataLoc l1:5;
-    DataLoc l2:5;
-    DataLoc l3:5;
-
-    CombinedOperation(Bytecode o, DataLoc a, DataLoc b, DataLoc c) : op(o), l1(a), l2(b), l3(c) {}
-};
+// Indirect values. 2 bits (bits 2-3). sign does not apply to the result.
+// indirects means the value (from a table above) contains the address
+// into a table that is specified by the name (Const, Stack, Global)Indirect.
+const DataLoc LocIndirectConst = 0x04;
+const DataLoc LocIndirectGlobal = 0x08;
+// As named, this is not a local (base+addr). it is an exact address into Stack.
+const DataLoc LocIndirectStack = 0x0C;
 
 struct Opcode {
 public:
-    Bytecode op:10;
-    DataLoc l1:5;
-    DataLoc l2:5;
-    DataLoc l3:5;
-    size_t p1:13;
-    size_t p2:13;
-    size_t p3:13;
+    Bytecode op:7;
+    DataLoc l1:4;
+    DataLoc l2:4;
+    DataLoc l3:4;
+    size_t p1:15;
+    size_t p2:15;
+    size_t p3:15;
 
     Opcode(
         Bytecode o, DataLoc il1, DataLoc il2, DataLoc il3, size_t a, size_t b, size_t c
-    )
-    : 
-      //opcode(o, l1, l2, l3),
+    ) : 
       op(o),
       l1(il1),
       l2(il2),
@@ -127,4 +102,26 @@ public:
       p1(a),
       p2(b),
       p3(c) {}
+
+    Opcode(
+        Bytecode o, DataLoc il1, DataLoc il2, size_t a, size_t b
+    ) : 
+      op(o),
+      l1(il1),
+      l2(il2),
+      l3(0),
+      p1(a),
+      p2(b),
+      p3(0) {}
+
+    Opcode(
+        Bytecode o, DataLoc il1, size_t a
+    ) : 
+      op(o),
+      l1(il1),
+      l2(0),
+      l3(0),
+      p1(a),
+      p2(0),
+      p3(0) {}
 };

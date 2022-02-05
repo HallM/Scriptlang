@@ -125,14 +125,16 @@ VM::_postcall(size_t stack_bytes) {
 
 void
 VM::_jump(DataLoc l, size_t d) {
-    if (l == DataLoc::O) {
-        _instruction_index += d;
-    }
-    else if (l == DataLoc::R) {
-        _instruction_index -= d;
-    }
-    else if (l == DataLoc::G) {
-        _instruction_index = d;
+    switch (l & LocTableBits) {
+        case LocTableGlobal:
+            _instruction_index = d;
+            break;
+        case LocTableLocal:
+            _instruction_index += d;
+            break;
+        case LocTableBack:
+            _instruction_index -= d;
+            break;
     }
 }
 
@@ -147,44 +149,63 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         return false;
         break;
     }
+    case Bytecode::AddressOf: {
+        size_t addr = 0;
+        switch (oc.l1 & LocTableBits) {
+            case LocTableConst:
+            case LocTableGlobal:
+                addr = oc.p1;
+                break;
+            case LocTableLocal:
+                addr = _base + oc.p1;
+                break;
+            case LocTableBack:
+                addr = _base - oc.p1;
+                break;
+        }
+
+        // TODO: so which table hmm? HMM?
+        _setv<size_t>(program, globals, addr, oc.l2, oc.p2);
+        break;
+    }
     case Bytecode::f32Set: {
-        _setv<float>(globals, _getv<float>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
+        _setv<float>(program, globals, _getv<float>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
     }
     case Bytecode::f32Add: {
-        _setv<float>(globals, aluadd<float>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<float>(program, globals, aluadd<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32Sub: {
-        _setv<float>(globals, alusub<float>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<float>(program, globals, alusub<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32Mul: {
-        _setv<float>(globals, alumul<float>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<float>(program, globals, alumul<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32Div: {
-        _setv<float>(globals, aludiv<float>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<float>(program, globals, aludiv<float>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Set: {
-        _setv<int>(globals, _getv<int>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
+        _setv<int>(program, globals, _getv<int>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
     }
     case Bytecode::s32Add: {
-        _setv<int>(globals, aluadd<int>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<int>(program, globals, aluadd<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Sub: {
-        _setv<int>(globals, alusub<int>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<int>(program, globals, alusub<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Mul: {
-        _setv<int>(globals, alumul<int>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<int>(program, globals, alumul<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32Div: {
-        _setv<int>(globals, aludiv<int>(program, globals, oc) , oc.l3, oc.p3);
+        _setv<int>(program, globals, aludiv<int>(program, globals, oc) , oc.l3, oc.p3);
         break;
     }
 
@@ -207,7 +228,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::Ret: {
-        size_t stack_bytes = oc.p3;
+        size_t stack_bytes = oc.p1;
         _postcall(stack_bytes);
         break;
     }

@@ -23,35 +23,48 @@ private:
     bool _run_next(const Program& program, VMFixedStack& globals);
 
     template<typename T>
+    T _table_value(const Program& program, VMFixedStack& globals, DataLoc l, size_t address) {
+        switch (l & LocTableBits) {
+            case LocTableConst:
+                return program.get_constant<T>(address);
+            case LocTableGlobal:
+                return *globals.at<T>(address);
+            case LocTableLocal:
+                return *data.at<T>(_base + address);
+            case LocTableBack:
+                return *data.at<T>(_base - address);
+        }
+        return (T)address;
+    }
+
+    template<typename T>
     T _getv(const Program& program, VMFixedStack& globals, DataLoc l, size_t d) {
-        if (l == DataLoc::G) {
-            //std::cout << "getglobal " << d.global_address << "\n";
-            return *globals.at<T>(d);
-        } else if (l == DataLoc::O) {
-            //std::cout << "base " << _base << "\n";
-            //std::cout << "getlocal " << _base+d.local_address << "\n";
-            return *data.at<T>(_base + d);
-        //} else if (l == DataLoc::R) {
-        //    //std::cout << "getparam " << base-std::get<ParamAddress>(d).negoffset << "\n";
-        //    return *data.at<T>(_base - std::get<ParamAddress>(d).negoffset);
+        size_t addr = d;
+        DataLoc table = l;
+        if (l & LocIndirectBits) {
+            addr = _table_value<size_t>(program, globals, l, d);
+            table = ((l & LocIndirectBits) >> 2) - 1;
         }
-        else if (l == DataLoc::C) {
-            return program.get_constant<T>(d);
-        }
-        return (T)0;
+        return _table_value<T>(program, globals, table, addr);
     }
     template<typename T>
-    void _setv(VMFixedStack& globals, T v, DataLoc l, size_t d) {
-        if (l == DataLoc::G) {
-            //std::cout << "setglobal " << d.global_address << " = " << v << "\n";
-            *globals.at<T>(d) = v;
-        } else if (l == DataLoc::O) {
-            //std::cout << "base " << _base << "\n";
-            //std::cout << "setlocal " << _base+d.local_address << " = " << v << "\n";
-            *data.at<T>(_base + d) = v;
-        //} else if (l == DataLoc::P) {
-        //    //std::cout << "setparam " << base-std::get<ParamAddress>(d).negoffset << " = " << v << "\n";
-        //    *data.at<T>(_base - std::get<ParamAddress>(d).negoffset) = v;
+    void _setv(const Program& program, VMFixedStack& globals, T v, DataLoc l, size_t d) {
+        size_t addr = d;
+        DataLoc table = l;
+        if (l & LocIndirectBits) {
+            addr = _table_value<size_t>(program, globals, l, d);
+            table = ((l & LocIndirectBits) >> 2) - 1;
+        }
+        switch (table & LocTableBits) {
+            case LocTableGlobal:
+                *globals.at<T>(addr) = v;
+                break;
+            case LocTableLocal:
+                *data.at<T>(_base + addr) = v;
+                break;
+            case LocTableBack:
+                *data.at<T>(_base - addr) = v;
+                break;
         }
     }
 

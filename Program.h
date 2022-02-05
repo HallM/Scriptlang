@@ -64,6 +64,7 @@ public:
     const T get_constant(size_t address) const {
         return _constants.cvalue<T>(address);
     }
+    const VMFixedStack& constants_table() const;
 
 private:
     size_t _globals_size;
