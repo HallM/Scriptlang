@@ -5,7 +5,7 @@
 enum class Bytecode: unsigned int {
     Break, // _ _ _
 
-    // AddressOf, // [a] [out] _
+    AddressOf, // [a] [out] _
     s32Set, // [a] [out] _
     f32Set,
 

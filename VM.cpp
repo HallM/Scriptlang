@@ -158,6 +158,11 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         return false;
         break;
     }
+    case Bytecode::AddressOf: {
+        size_t address = size_t(_table_ptr<int*>(globals, oc.p1));
+        _setv<size_t>(program, globals, address, oc.l2, oc.p2);
+        break;
+    }
     case Bytecode::f32Set: {
         _setv<float>(program, globals, _getv<float>(program, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
