@@ -21,7 +21,7 @@ int main() {
         std::cout << a << "\n";
     });
 
-    float iterate_to = 1000000.0f; // 1000000.0f
+    float iterate_to = 1.0f; // 1000000.0f
 
     // the lua application including compilation was 1 second 249ms (1.25s)
     // this app was 1.32s. Lua 0.0031ms per loop. THis 0.0033ms per loop.

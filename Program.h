@@ -53,6 +53,7 @@ public:
     size_t current_method_address() const;
 
     const MethodMetadata& get_method_metadata(std::string name) const;
+    const MethodMetadata& get_method_metadata(size_t address) const;
 
     size_t globals_size() const;
     const std::vector<IRunnable*>& get_builtins() const;
@@ -66,15 +67,19 @@ public:
     }
     const VMFixedStack& constants_table() const;
 
+    const IRunnable* get_builtin_runnable(size_t addr) const;
+    const IRunnable* get_method_runnable(size_t addr) const;
+
 private:
     size_t _globals_size;
     std::vector<IRunnable*> _builtins;
     std::vector<Opcode> _code;
     VMFixedStack _constants;
+    std::unordered_map<size_t, IRunnable*> _methods;
 
     std::unordered_map<std::string, size_t> _builtin_addresses;
     std::unordered_map<std::string, size_t> _function_addresses;
-    std::unordered_map<std::string, MethodMetadata> _function_metadata;
+    std::unordered_map<size_t, MethodMetadata> _function_metadata;
     std::unordered_map<std::string, size_t> _constant_addresses;
     std::unordered_map<std::string, size_t> _global_addresses;
 };

@@ -4,7 +4,11 @@
 #include <iterator>
 
 Program::Program(size_t const_bytes) : _globals_size(0), _constants(const_bytes) {}
-Program::~Program() {}
+Program::~Program() {
+    for (auto& it : _methods) {
+        delete it.second;
+    }
+}
 
 std::shared_ptr<VMFixedStack>
 Program::generate_state() {
@@ -25,7 +29,10 @@ Program::add_method(std::string name, size_t param_size, size_t stack_size, std:
     std::copy(method_code.begin(), method_code.end(), std::back_inserter(_code));
     _function_addresses[name] = addr;
 
-    _function_metadata[name] = MethodMetadata{param_size, stack_size};
+    _function_metadata[addr] = MethodMetadata{param_size, stack_size};
+
+    IRunnable* runnable = new BytecodeRunnable(addr, param_size, stack_size);
+    _methods[addr] = runnable;
 }
 
 size_t
@@ -55,7 +62,13 @@ Program::current_method_address() const {
 
 const MethodMetadata&
 Program::get_method_metadata(std::string name) const {
-    return _function_metadata.at(name);
+    size_t address = _function_addresses.at(name);
+    return _function_metadata.at(address);
+}
+
+const MethodMetadata&
+Program::get_method_metadata(size_t address) const {
+    return _function_metadata.at(address);
 }
 
 size_t
@@ -81,4 +94,14 @@ Program::get_opcode(size_t index) const {
 const VMFixedStack&
 Program::constants_table() const {
     return _constants;
+}
+
+const IRunnable*
+Program::get_builtin_runnable(size_t addr) const {
+    return _builtins.at(addr);
+}
+
+const IRunnable*
+Program::get_method_runnable(size_t addr) const {
+    return _methods.at(addr);
 }

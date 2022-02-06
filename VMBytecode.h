@@ -5,7 +5,9 @@
 enum class Bytecode: unsigned int {
     Break, // _ _ _
 
-    AddressOf, // [a] [out] _
+    DataAddress, // [a] [out] _
+    FunctionAddress, // [a] [out] _
+
     s32Set, // [a] [out] _
     f32Set,
 
@@ -29,7 +31,7 @@ enum class Bytecode: unsigned int {
     // results are stored in the same manner as params.
     // base-(sizeof(result)) is the return.
     // base-4 in this case.
-    CallExtern, // [addr] _ _
+    CallRunnable, // [addr] [parambytes] _
     // The caller (Call) needs to allocate the stack for the callee.
     // It also adds the parameters in it's own stack space, but places
     // the params starting at base+0.

@@ -3,11 +3,30 @@
 #include <iostream>
 
 //
+// calls:
+// currently there are inlang and ext calls
+// these can work for objects too
+// what happens when we add interfaces?
+// what about function refs?
+// 
+// if we change inlang calls to be a runnable, then we just use it
+// capturing the address of an inlang call could generate a runnable
+// the runnable could capture the VM
+//
+
+//
+// Idea:
+// function interface takes template <...args>
+// we store the typeinfo of the params in metadata
+// then we can validate the typeinfo of ...args matches the typeinfo of params
+//
+
+//
 // Items left:
 // 0. returned values (solidified)
 // 1. objects
 // 2. refs
-// 3. arrays
+// 3. arrays/lists. maps?
 // 4. strings
 // 5. FFI with the above items
 // 6. bytecode finalization
@@ -158,9 +177,22 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         return false;
         break;
     }
-    case Bytecode::AddressOf: {
+    case Bytecode::DataAddress: {
         size_t address = size_t(_table_ptr<int*>(globals, oc.p1));
         _setv<size_t>(program, globals, address, oc.l2, oc.p2);
+        break;
+    }
+    case Bytecode::FunctionAddress: {
+        const size_t page = (oc.p1 & ParamAddressPageMask) >> ParamAddressPageBit;
+        const size_t offset = oc.p1 & ParamAddressOffsetMask;
+        if (page == 0) {
+            size_t address = size_t(program.get_method_runnable(offset));
+            _setv<size_t>(program, globals, address, oc.l2, oc.p2);
+        }
+        else {
+            size_t address = size_t(program.get_builtin_runnable(offset));
+            _setv<size_t>(program, globals, address, oc.l2, oc.p2);
+        }
         break;
     }
     case Bytecode::f32Set: {
@@ -204,10 +236,23 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
 
-    case Bytecode::CallExtern: {
-        size_t fn = oc.p1;
-        IRunnable* r = program.get_builtins()[fn];
-        r->invoke(data, data.size());
+    case Bytecode::CallRunnable: {
+        size_t param_bytes = oc.p2;
+        const IRunnable* r = nullptr;
+        if (oc.l1 == LocMemoryDirect) {
+            const size_t page = (oc.p1 & ParamAddressPageMask) >> ParamAddressPageBit;
+            const size_t offset = oc.p1 & ParamAddressOffsetMask;
+            if (page == 0) {
+                r = program.get_method_runnable(offset);
+            }
+            else {
+                r = program.get_builtin_runnable(offset);
+            }
+        }
+        else {
+            r = _table_value<IRunnable*>(program, globals, oc.p1);
+        }
+        r->invoke(*this, data, data.size() - param_bytes);
         break;
     }
     case Bytecode::Call: {

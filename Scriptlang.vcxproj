@@ -147,6 +147,7 @@
     <ClCompile Include="Program.cpp" />
     <ClCompile Include="VM.cpp" />
     <ClCompile Include="VMBytecode.cpp" />
+    <ClCompile Include="VMFFI.cpp" />
     <ClCompile Include="VMStack.cpp" />
   </ItemGroup>
   <ItemGroup>

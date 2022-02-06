@@ -8,6 +8,8 @@
 #include <iostream>
 #include <type_traits>
 
+class BytecodeRunnable;
+
 class VM {
 public:
     VM(size_t stack_size);
@@ -16,6 +18,8 @@ public:
     void run_method(const Program& program, std::string method_name, VMFixedStack& globals);
 
 private:
+    friend BytecodeRunnable;
+
     void _precall(size_t param_bytes, size_t stack_bytes);
     // void _setup_stackframe(size_t stack_size);
     void _postcall(size_t stack_bytes);

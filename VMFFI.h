@@ -5,10 +5,23 @@
 
 #include "VMStack.h"
 
+class VM;
+
 class IRunnable {
 public:
     virtual ~IRunnable() = default;
-    virtual void invoke(VMFixedStack& s, size_t base) = 0;
+    virtual void invoke(VM& vm, VMFixedStack& s, size_t base) const = 0;
+};
+
+class BytecodeRunnable : public IRunnable {
+public:
+    BytecodeRunnable(size_t address, size_t param_size, size_t stack_reserve);
+    ~BytecodeRunnable();
+    void invoke(VM& vm, VMFixedStack& s, size_t base) const;
+private:
+    size_t _address;
+    size_t _param_size;
+    size_t _stack_reserve;
 };
 
 template <typename R, typename... Args>
@@ -20,7 +33,7 @@ public:
     }
     ~BuiltinRunnable() {}
 
-    void invoke(VMFixedStack& s, size_t base) {
+    void invoke(VM& vm, VMFixedStack& s, size_t base) const{
         _invoke(s, base, std::index_sequence_for<Args...>{});
     }
 private:
@@ -36,7 +49,7 @@ private:
     }
 
     template <std::size_t... Is>
-    void _invoke(VMFixedStack& s, size_t base, std::index_sequence<Is...>) {
+    void _invoke(VMFixedStack& s, size_t base, std::index_sequence<Is...>) const {
         auto t = _invokable(
             (*s.at<Args>(base - _poffsets[Is]))...
         );
@@ -56,7 +69,7 @@ public:
     }
     ~BuiltinRunnable() {}
 
-    void invoke(VMFixedStack& s, size_t base) {
+    void invoke(VM& vm, VMFixedStack& s, size_t base) const {
         _invoke(s, base, std::index_sequence_for<Args...>{});
     }
 
@@ -73,7 +86,7 @@ private:
     }
 
     template <std::size_t... Is>
-    void _invoke(VMFixedStack& s, size_t base, std::index_sequence<Is...>) {
+    void _invoke(VMFixedStack& s, size_t base, std::index_sequence<Is...>) const {
         _invokable(
             (*s.at<Args>(base - _poffsets[Is]))...
         );
