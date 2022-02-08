@@ -75,29 +75,35 @@ const DataLoc LocMemoryDirect = 0x00;
 // for jumps, the indirect value is added to the ip, using same signbit of stack
 const DataLoc LocMemoryIndirect = 0x01;
 
-// only used for stack/jumps
-const size_t MemoryAddressSignBit = 1 << 15;
-
-// the base+/base- addresses are always stack addresses.
 // TODO: I might add an auto bitshift left 2 bits.
 
 const size_t ParamAddressPageBit = 16;
 const size_t ParamAddressPageMask = 0x03 << ParamAddressPageBit;
 const size_t ParamAddressOffsetMask = (~ParamAddressPageMask) & 0x3FFFF;
 
+struct BytecodeParam {
+    DataLoc loc;
+    size_t page;
+    size_t offset;
+};
 
-size_t ConstantAddress(size_t offset);
-size_t GlobalAddress(size_t offset);
-size_t StackAddressForward(size_t offset);
-size_t StackAddressBackward(size_t offset);
+BytecodeParam ConstantAddress(DataLoc loc, size_t offset);
+BytecodeParam GlobalAddress(DataLoc loc, size_t offset);
+BytecodeParam StackAddressForward(DataLoc loc, size_t offset);
+BytecodeParam StackAddressBackward(DataLoc loc, size_t offset);
 
-size_t JumpExact(size_t address);
-size_t JumpOffsetForward(size_t offset);
-size_t JumpOffsetBackward(size_t offset);
+BytecodeParam JumpExact(DataLoc loc, size_t address);
+BytecodeParam JumpOffsetForward(DataLoc loc, size_t offset);
+BytecodeParam JumpOffsetBackward(DataLoc loc, size_t offset);
 
-size_t ScriptCall(size_t offset);
-size_t ExternalCall(size_t offset);
-size_t StackSize(size_t v);
+BytecodeParam ScriptCall(DataLoc loc, size_t offset);
+BytecodeParam ExternalCall(DataLoc loc, size_t offset);
+BytecodeParam StackSize(DataLoc loc, size_t bytes);
+
+size_t merge_page_offset(BytecodeParam param);
+
+size_t address_page(size_t address);
+size_t address_offset(size_t address);
 
 struct Opcode {
 public:
@@ -110,35 +116,35 @@ public:
     size_t p3:18;
 
     Opcode(
-        Bytecode o, DataLoc il1, DataLoc il2, DataLoc il3, size_t a, size_t b, size_t c
+        Bytecode o, BytecodeParam param1, BytecodeParam param2, BytecodeParam param3
     ) : 
       op(o),
-      l1(il1),
-      l2(il2),
-      l3(il3),
-      p1(a),
-      p2(b),
-      p3(c) {}
+      l1(param1.loc),
+      l2(param2.loc),
+      l3(param3.loc),
+      p1(merge_page_offset(param1)),
+      p2(merge_page_offset(param2)),
+      p3(merge_page_offset(param3)) {}
 
     Opcode(
-        Bytecode o, DataLoc il1, DataLoc il2, size_t a, size_t b
+        Bytecode o, BytecodeParam param1, BytecodeParam param2
     ) : 
       op(o),
-      l1(il1),
-      l2(il2),
+      l1(param1.loc),
+      l2(param2.loc),
       l3(0),
-      p1(a),
-      p2(b),
+      p1(merge_page_offset(param1)),
+      p2(merge_page_offset(param2)),
       p3(0) {}
 
     Opcode(
-        Bytecode o, DataLoc il1, size_t a
+        Bytecode o, BytecodeParam param1
     ) : 
       op(o),
-      l1(il1),
+      l1(param1.loc),
       l2(0),
       l3(0),
-      p1(a),
+      p1(merge_page_offset(param1)),
       p2(0),
       p3(0) {}
 };

@@ -1,57 +1,66 @@
 #include "VMBytecode.h"
 
-size_t
-ConstantAddress(size_t offset) {
-    return offset & ParamAddressOffsetMask;
+BytecodeParam
+ConstantAddress(DataLoc loc, size_t offset) {
+    return {loc, 0, offset};
+}
+
+BytecodeParam
+GlobalAddress(DataLoc loc, size_t offset) {
+    return {loc, 1, offset};
+}
+
+BytecodeParam
+StackAddressForward(DataLoc loc, size_t offset) {
+    return {loc, 2, offset};
+}
+
+BytecodeParam
+StackAddressBackward(DataLoc loc, size_t offset) {
+    return {loc, 3, offset};
+}
+
+BytecodeParam
+JumpExact(DataLoc loc, size_t address) {
+    return {loc, 0, address};
+}
+
+BytecodeParam
+JumpOffsetForward(DataLoc loc, size_t offset) {
+    return {loc, 2, offset};
+}
+
+BytecodeParam
+JumpOffsetBackward(DataLoc loc, size_t offset) {
+    return {loc, 3, offset};
+}
+
+BytecodeParam
+ScriptCall(DataLoc loc, size_t offset) {
+    return {loc, 0, offset};
+}
+
+BytecodeParam
+ExternalCall(DataLoc loc, size_t offset) {
+    return {loc, 2, offset};
+}
+
+BytecodeParam
+StackSize(DataLoc loc, size_t bytes) {
+    return {loc, 0, bytes};
 }
 
 size_t
-GlobalAddress(size_t offset) {
-    size_t page = 1 << ParamAddressPageBit;
-    return page | (offset & ParamAddressOffsetMask);
+merge_page_offset(BytecodeParam param) {
+    return (param.page << ParamAddressPageBit) | (param.offset & ParamAddressOffsetMask);
 }
 
 size_t
-StackAddressForward(size_t offset) {
-    size_t page = 2 << ParamAddressPageBit;
-    return page | (offset & ParamAddressOffsetMask);
+address_page(size_t address) {
+    return (address & ParamAddressPageMask) >> ParamAddressPageBit;
 }
 
 size_t
-StackAddressBackward(size_t offset) {
-    size_t page = 3 << ParamAddressPageBit;
-    return page | (offset & ParamAddressOffsetMask);
-}
-
-size_t
-JumpExact(size_t address) {
-    return (address& ParamAddressOffsetMask);
-}
-
-size_t
-JumpOffsetForward(size_t offset) {
-    size_t page = 2 << ParamAddressPageBit;
-    return page | (offset & ParamAddressOffsetMask);
-}
-
-size_t
-JumpOffsetBackward(size_t offset) {
-    size_t page = 3 << ParamAddressPageBit;
-    return page | (offset & ParamAddressOffsetMask);
-}
-
-size_t
-ScriptCall(size_t offset) {
-    return offset & ParamAddressOffsetMask;
-}
-
-size_t
-ExternalCall(size_t offset) {
-    size_t page = 2 << ParamAddressPageBit;
-    return page | (offset & ParamAddressOffsetMask);
-}
-
-size_t
-StackSize(size_t v) {
-    return v & ParamAddressOffsetMask;
+address_offset(size_t address) {
+    return address & ParamAddressOffsetMask;
 }

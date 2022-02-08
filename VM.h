@@ -28,8 +28,8 @@ private:
 
     template<typename T>
     T _table_value(const Program& program, VMFixedStack& globals, size_t address) {
-        const size_t page = (address & ParamAddressPageMask) >> ParamAddressPageBit;
-        const size_t offset = address & ParamAddressOffsetMask;
+        const size_t page = address_page(address);
+        const size_t offset = address_offset(address);
         switch (page) {
             case 0: {
                 //std::cout << "get constant " << offset << "\n";
@@ -51,8 +51,8 @@ private:
     }
     template<typename T>
     T* _table_ptr(VMFixedStack& globals, size_t address) {
-        const size_t page = (address & ParamAddressPageMask) >> ParamAddressPageBit;
-        const size_t offset = address & ParamAddressOffsetMask;
+        const size_t page = address_page(address);
+        const size_t offset = address_offset(address);
 
         switch (page) {
             case 0: {

@@ -145,8 +145,8 @@ VM::_postcall(size_t stack_bytes) {
 void
 VM::_jump(const Program& program, VMFixedStack& globals, DataLoc l, size_t address) {
     if (l == LocMemoryDirect) {
-        const size_t page = (address & ParamAddressPageMask) >> ParamAddressPageBit;
-        const size_t offset = address & ParamAddressOffsetMask;
+        const size_t page = address_page(address);
+        const size_t offset = address_offset(address);
         switch (page) {
             case 0:
             case 1:
@@ -169,7 +169,7 @@ VM::_jump(const Program& program, VMFixedStack& globals, DataLoc l, size_t addre
 bool
 VM::_run_next(const Program& program, VMFixedStack& globals) {
     const auto& oc = program.get_opcode(_instruction_index);
-    // std::cout << _instruction_index << " << " << (int)oc.op << "\n";
+    //std::cout << _instruction_index << " << " << (int)oc.op << "\n";
     _instruction_index++;
 
     switch (oc.op) {
@@ -183,8 +183,8 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::FunctionAddress: {
-        const size_t page = (oc.p1 & ParamAddressPageMask) >> ParamAddressPageBit;
-        const size_t offset = oc.p1 & ParamAddressOffsetMask;
+        const size_t page = address_page(oc.p1);
+        const size_t offset = address_offset(oc.p1);
         if (page == 0) {
             size_t address = size_t(program.get_method_runnable(offset));
             _setv<size_t>(program, globals, address, oc.l2, oc.p2);
@@ -240,8 +240,8 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         size_t param_bytes = oc.p2;
         const IRunnable* r = nullptr;
         if (oc.l1 == LocMemoryDirect) {
-            const size_t page = (oc.p1 & ParamAddressPageMask) >> ParamAddressPageBit;
-            const size_t offset = oc.p1 & ParamAddressOffsetMask;
+            const size_t page = address_page(oc.p1);
+            const size_t offset = address_offset(oc.p1);
             if (page == 0) {
                 r = program.get_method_runnable(offset);
             }
