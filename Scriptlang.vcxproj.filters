@@ -16,42 +16,60 @@
     <Filter Include="gitstuff">
       <UniqueIdentifier>{ca412e60-c348-4c70-b9f9-92095338bbac}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\VM">
+      <UniqueIdentifier>{8d5de5fd-ca34-4292-a337-a4bfe4e77cb0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Demo">
+      <UniqueIdentifier>{1fb7f82c-2925-4fd1-8ae0-c70fff1f2e64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\AST">
+      <UniqueIdentifier>{070e7e0b-53fb-494d-b5e9-23ec2ace2aa6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\VM">
+      <UniqueIdentifier>{dd5aef80-9c45-491a-ab97-cb5663a4f5f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\AST">
+      <UniqueIdentifier>{f8bbd083-4124-4fe6-b251-9968b727c5ed}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Program.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\VM</Filter>
     </ClCompile>
     <ClCompile Include="VM.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="VMStack.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\VM</Filter>
     </ClCompile>
     <ClCompile Include="VMBytecode.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\VM</Filter>
     </ClCompile>
     <ClCompile Include="VMFFI.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\VM</Filter>
+    </ClCompile>
+    <ClCompile Include="VMStack.cpp">
+      <Filter>Source Files\VM</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files\Demo</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Program.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\VM</Filter>
     </ClInclude>
     <ClInclude Include="VM.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\VM</Filter>
     </ClInclude>
     <ClInclude Include="VMBytecode.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\VM</Filter>
     </ClInclude>
     <ClInclude Include="VMFFI.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\VM</Filter>
     </ClInclude>
     <ClInclude Include="VMStack.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\VM</Filter>
+    </ClInclude>
+    <ClInclude Include="AST.h">
+      <Filter>Header Files\AST</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

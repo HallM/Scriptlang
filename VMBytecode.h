@@ -24,14 +24,12 @@ enum class Bytecode: unsigned int {
     f32Mod,
 
     // sets the base plus handles reserving some stack space for a function
-    // BeginFrame, // [size] _ _
     // calls assume that base-P is each param. for example: int f(int a,int b)
     // a is base-4
     // b is base-8
     // results are stored in the same manner as params.
     // base-(sizeof(result)) is the return.
     // base-4 in this case.
-    CallRunnable, // [addr] [parambytes] _
     // The caller (Call) needs to allocate the stack for the callee.
     // It also adds the parameters in it's own stack space, but places
     // the params starting at base+0.
@@ -87,13 +85,19 @@ const size_t ParamAddressPageBit = 16;
 const size_t ParamAddressPageMask = 0x03 << ParamAddressPageBit;
 const size_t ParamAddressOffsetMask = (~ParamAddressPageMask) & 0x3FFFF;
 
+
 size_t ConstantAddress(size_t offset);
 size_t GlobalAddress(size_t offset);
 size_t StackAddressForward(size_t offset);
 size_t StackAddressBackward(size_t offset);
+
 size_t JumpExact(size_t address);
 size_t JumpOffsetForward(size_t offset);
 size_t JumpOffsetBackward(size_t offset);
+
+size_t ScriptCall(size_t offset);
+size_t ExternalCall(size_t offset);
+size_t StackSize(size_t v);
 
 struct Opcode {
 public:

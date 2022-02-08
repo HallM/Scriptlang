@@ -29,7 +29,7 @@ class BuiltinRunnable : public IRunnable {
 public:
     BuiltinRunnable(std::function<R(Args...)> invokable) : _invokable(invokable) {
         _set_offset<Args...>(0, 0);
-        _ret_offset = sizeof(R);
+        _ret_offset = 0;
     }
     ~BuiltinRunnable() {}
 
@@ -39,21 +39,21 @@ public:
 private:
     template <typename Af, typename As, typename... Ar>
     void _set_offset(size_t index, size_t offset) {
+        _poffsets[index] = offset;
         size_t loc = offset + sizeof(Af);
-        _poffsets[index] = loc;
         _set_offset<As, Ar...>(index + 1, loc);
     }
     template <typename Af>
     void _set_offset(size_t index, size_t offset) {
-        _poffsets[index] = offset + sizeof(Af);
+        _poffsets[index] = offset;
     }
 
     template <std::size_t... Is>
     void _invoke(VMFixedStack& s, size_t base, std::index_sequence<Is...>) const {
         auto t = _invokable(
-            (*s.at<Args>(base - _poffsets[Is]))...
+            (*s.at<Args>(base + _poffsets[Is]))...
         );
-        *s.at<R>(base - _ret_offset) = t;
+        *s.at<R>(base + _ret_offset) = t;
     }
 
     std::function<R(Args...)> _invokable;
@@ -76,19 +76,19 @@ public:
 private:
     template <typename Af, typename As, typename... Ar>
     void _set_offset(size_t index, size_t offset) {
+        _poffsets[index] = 0;
         size_t loc = offset + sizeof(Af);
-        _poffsets[index] = loc;
         _set_offset<As, Ar...>(index + 1, loc);
     }
     template <typename Af>
     void _set_offset(size_t index, size_t offset) {
-        _poffsets[index] = offset + sizeof(Af);
+        _poffsets[index] = offset;
     }
 
     template <std::size_t... Is>
     void _invoke(VMFixedStack& s, size_t base, std::index_sequence<Is...>) const {
         _invokable(
-            (*s.at<Args>(base - _poffsets[Is]))...
+            (*s.at<Args>(base + _poffsets[Is]))...
         );
     }
 

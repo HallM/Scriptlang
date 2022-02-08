@@ -96,6 +96,7 @@ private:
             }
             default: {
                 *_table_ptr<T>(globals, address) = v;
+                //std::cout << "set something to " << v << "\n";
                 break;
             }
         }

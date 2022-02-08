@@ -39,3 +39,19 @@ JumpOffsetBackward(size_t offset) {
     size_t page = 3 << ParamAddressPageBit;
     return page | (offset & ParamAddressOffsetMask);
 }
+
+size_t
+ScriptCall(size_t offset) {
+    return offset & ParamAddressOffsetMask;
+}
+
+size_t
+ExternalCall(size_t offset) {
+    size_t page = 2 << ParamAddressPageBit;
+    return page | (offset & ParamAddressOffsetMask);
+}
+
+size_t
+StackSize(size_t v) {
+    return v & ParamAddressOffsetMask;
+}

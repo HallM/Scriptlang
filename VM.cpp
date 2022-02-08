@@ -236,7 +236,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
 
-    case Bytecode::CallRunnable: {
+    case Bytecode::Call: {
         size_t param_bytes = oc.p2;
         const IRunnable* r = nullptr;
         if (oc.l1 == LocMemoryDirect) {
@@ -253,14 +253,6 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
             r = _table_value<IRunnable*>(program, globals, oc.p1);
         }
         r->invoke(*this, data, data.size() - param_bytes);
-        break;
-    }
-    case Bytecode::Call: {
-        // TODO: indirect calls
-        size_t param_bytes = oc.p2;
-        size_t stack_bytes = oc.p3;
-        _precall(param_bytes, stack_bytes);
-        _instruction_index = oc.p1;
         break;
     }
     case Bytecode::Ret: {

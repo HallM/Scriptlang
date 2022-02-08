@@ -151,6 +151,7 @@
     <ClCompile Include="VMStack.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AST.h" />
     <ClInclude Include="Program.h" />
     <ClInclude Include="VM.h" />
     <ClInclude Include="VMBytecode.h" />
