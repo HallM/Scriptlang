@@ -2,15 +2,42 @@
 
 #include <unordered_map>
 #include <memory>
+#include <typeindex>
+#include <typeinfo>
 #include <vector>
 
 #include "VMFFI.h"
 #include "VMBytecode.h"
 #include "VMStack.h"
+#include "VM.h"
 
 struct MethodMetadata {
     size_t param_size;
     size_t stack_size;
+};
+
+class Program;
+
+template <typename Ret, typename... Args>
+class Callable {
+public:
+    Callable(const Program& p, std::string name) : _p(p), _name(name) {}
+
+    Ret operator()(VM& vm, VMFixedStack& globals, Args... args) {
+        size_t ret = 0;
+        if constexpr (sizeof...(Args) > 0) {
+            vm.push_parameters<Args...>(args...);
+        } else if constexpr (!std::is_void<Ret>::value) {
+            vm.reserve_return<Ret>();
+        }
+        vm.run_method(_p, _name, globals);
+        if constexpr (!std::is_void<Ret>::value) {
+            return vm.get_return<Ret>(0);
+        }
+    }
+private:
+    const Program& _p;
+    std::string _name;
 };
 
 // Program is a set of compiled instructions and information to find addresses.
@@ -24,6 +51,35 @@ public:
     T get_global(std::string name, VMFixedStack& globals) {
         auto address = get_global_address(name);
         return globals.at<T>(address);
+    }
+
+    template <typename Ret, typename... Args>
+    std::function<Ret(VM&, VMFixedStack&, Args...)> method(std::string name) {
+        std::vector<std::type_index>& check = _function_ret_params.at(name);
+        std::vector<std::type_index> input = {
+            typeid(Ret),
+            typeid(Args)...
+        };
+        size_t size = check.size();
+        if (input.size() != size) {
+            throw "Incorrect number of parameters";
+        }
+        for (size_t i = 0; i < size; i++) {
+            if (check[i] != input[i]) {
+                throw "Incorrect parameter";
+            }
+        }
+
+        return Callable<Ret, Args...>(*this, name);
+    }
+
+    template <typename Ret, typename... Args>
+    void register_method(std::string name) {
+        std::vector<std::type_index> rp = {
+            typeid(Ret),
+            typeid(Args)...
+        };
+        _function_ret_params[name] = rp;
     }
 
     // Generates a fixed stack containing all globals.
@@ -79,6 +135,7 @@ private:
 
     std::unordered_map<std::string, size_t> _builtin_addresses;
     std::unordered_map<std::string, size_t> _function_addresses;
+    std::unordered_map<std::string, std::vector<std::type_index>> _function_ret_params;
     std::unordered_map<size_t, MethodMetadata> _function_metadata;
     std::unordered_map<std::string, size_t> _constant_addresses;
     std::unordered_map<std::string, size_t> _global_addresses;

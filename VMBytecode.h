@@ -11,6 +11,11 @@ enum class Bytecode: unsigned int {
     s32Set, // [a] [out] _
     f32Set,
 
+    s32SetFromIndexed, // [a] [indx] [out]
+    s32SetIntoIndexed, // [a] [out] [indx]
+    f32SetFromIndexed,
+    f32SetIntoIndexed,
+
     s32Add, // [a] [b] [out]
     s32Sub,
     s32Mul,

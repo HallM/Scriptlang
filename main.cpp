@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "VM.h"
+#include "Program.h"
 
 int main() {
     auto m_beg = std::chrono::steady_clock::now();
@@ -21,7 +22,7 @@ int main() {
         std::cout << a << "\n";
     });
 
-    float iterate_to = 1000000.0f; // 1000000.0f
+    float iterate_to = 1.0f; // 1000000.0f
 
     // the lua application including compilation was 1 second 249ms (1.25s)
     // this app was 1.32s. Lua 0.0031ms per loop. THis 0.0033ms per loop.
@@ -236,10 +237,16 @@ int main() {
                JumpOffsetBackward(LocMemoryDirect, 9)),
         Opcode(Bytecode::Ret, StackSize(LocMemoryDirect, 16))
     });
-    VM* m = new VM(VMSTACK_PAGE_SIZE);
+    program.register_method<void>("main");
+    program.register_method<float,float,float>("LAverage");
+
+    VM* vm = new VM(VMSTACK_PAGE_SIZE);
 
     std::shared_ptr<VMFixedStack> globals = program.generate_state();
-    m->run_method(program, "main", *globals);
+    // vm->run_method(program, "main", *globals);
+
+    auto scriptmain = program.method<void>("main");
+    scriptmain(*vm, *globals);
 
     float N = *globals->at<float>(program.get_global_address("N"));
     std::cout << "N = " << N << "\n";
@@ -248,5 +255,9 @@ int main() {
 
     std::cout << "time: " << dur << "s\n";
 
-    delete m;
+    auto scriptaverage = program.method<float,float,float>("LAverage");
+    float avg = scriptaverage(*vm, *globals, 1, 2);
+    std::cout << "checking: " << avg << "\n";
+
+    delete vm;
 }
