@@ -10,8 +10,137 @@
 
 #include "VM.h"
 #include "Program.h"
+#include "AST.h"
+#include "Compiler.h"
 
-int main() {
+void compile_demo() {
+    Node avgdecl;
+    avgdecl.data = MethodDeclaration{"average", "f32(f32,f32)"};
+    Node maindecl;
+    maindecl.data = MethodDeclaration{"main", "void(bool)"};
+
+    Node global;
+    global.data = VariableDeclaration{"N", "f32"};
+
+    Node lhs;
+    lhs.data = Identifier{"x"};
+    Node rhs;
+    rhs.data = Identifier{"y"};
+
+    Node denom;
+    denom.data = ConstF32{2.0f};
+    Node sum;
+    sum.data = BinaryOperation{BinaryOps::Add, false, &lhs, &rhs};
+    Node div;
+    div.data = BinaryOperation{BinaryOps::Divide, false, &sum, &denom};
+    Node avgret;
+    avgret.data = ReturnValue{&div};
+
+    Node avgblock;
+    avgblock.data = Block{ {&avgret} };
+
+    Node avgm;
+    avgm.data = MethodDefinition{"average", {"x", "y"}, &avgblock};
+
+    Node varxdec;
+    varxdec.data = VariableDeclaration{"x", "f32"};
+
+    Node callp1;
+    callp1.data = ConstF32{2.0f};
+    Node callp1pn;
+    callp1pn.data = CallParam{&callp1};
+    Node callp2;
+    callp2.data = ConstF32{3.0f};
+    Node callp2pn;
+    callp2pn.data = CallParam{&callp2};
+    Node avgid;
+    avgid.data = Identifier{"average"};
+    Node callavg;
+    callavg.data = MethodCall{&avgid, {&callp1pn, &callp2pn}};
+
+    Node thenvarx;
+    thenvarx.data = Identifier{"x"};
+    Node setx;
+    setx.data = SetOperation{{}, &thenvarx, &callavg};
+    Node thenblock;
+    thenblock.data = Block{ {&setx} };
+
+    Node elsevarx;
+    elsevarx.data = Identifier{"x"};
+    Node elseval;
+    elseval.data = ConstF32{123.0f};
+    Node elsesetx;
+    elsesetx.data = SetOperation{{}, &elsevarx, &elseval};
+    Node elseblock;
+    elseblock.data = Block{ {&elsesetx} };
+
+    Node doextern;
+    doextern.data = Identifier{"doextern"};
+    Node ifset;
+    ifset.data = IfStmt{&doextern, &thenblock, &elseblock};
+
+    Node varNset;
+    varNset.data = Identifier{"N"};
+    Node varNsetx;
+    varNsetx.data = Identifier{"x"};
+    Node setvarn;
+    setvarn.data = SetOperation{{}, &varNset, &varNsetx};
+
+    Node mainret;
+    mainret.data = ReturnValue{};
+
+    Node mainblock;
+    mainblock.data = Block{ {&varxdec, &ifset, &setvarn, &mainret} };
+    Node mainm;
+    mainm.data = MethodDefinition{"main", {"doextern"}, &mainblock};
+
+    Node root;
+    root.data = GlobalBlock{ {&avgdecl, &maindecl, &global, &mainm, &avgm} };
+
+    TypeTable types;
+
+    types["void"] = TypeInfo{"void", 0, PrimitiveType::empty};
+    types["bool"] = TypeInfo{"bool", 4, PrimitiveType::boolean};
+    types["s32"] = TypeInfo{"s32", sizeof(int), PrimitiveType::s32};
+    types["f32"] = TypeInfo{"f32", sizeof(float), PrimitiveType::f32};
+    types["f32(f32,f32)"] = TypeInfo{
+        "f32(f32,f32)",
+        0,
+        TypeMethod{
+            "f32",
+            {
+                MethodTypeParameter{"f32"},
+                MethodTypeParameter{"f32"},
+            }
+        }
+    };
+    types["void(bool)"] = TypeInfo{
+        "void(bool)",
+        0,
+        TypeMethod{
+            "void",
+            {
+                MethodTypeParameter{"bool"},
+            }
+        }
+    };
+
+    auto program = Compile(&root, types, {});
+    auto scriptaverage = program->method<float,float,float>("average");
+    auto scriptmain = program->method<void,bool>("main");
+
+    std::shared_ptr<VMFixedStack> globals = program->generate_state();
+
+    VM* vm = new VM(VMSTACK_PAGE_SIZE);
+
+    float avg = scriptaverage(*vm, *globals, 3, 2);
+    std::cout << "checking avg: " << avg << "\n-----\n";
+
+    scriptmain(*vm, *globals, true);
+    std::cout << "checking N: " << globals->cvalue<float>(program->get_global_address("N")) << "\n";
+}
+
+void vm_demo() {
     auto m_beg = std::chrono::steady_clock::now();
 
     BuiltinRunnable<float, float, float> average([](float a, float b) -> float {
@@ -79,7 +208,8 @@ int main() {
                GlobalAddress(LocMemoryDirect, 0),
                StackAddressForward(LocMemoryDirect, 4)),
         Opcode(Bytecode::Call,
-               average_location, StackSize(LocMemoryDirect, 8)),
+               average_location,
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::f32Add,
                GlobalAddress(LocMemoryDirect, 0),
                StackAddressForward(LocMemoryDirect, 0),
@@ -101,7 +231,7 @@ int main() {
                StackAddressForward(LocMemoryDirect, 4)),
         Opcode(Bytecode::Call,
                average_location,
-               StackSize(LocMemoryDirect, 8)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::f32Mul,
                StackAddressForward(LocMemoryDirect, 0),
                ConstantAddress(LocMemoryDirect, program.get_constant_address("2.0f")),
@@ -145,14 +275,14 @@ int main() {
                StackAddressForward(LocMemoryDirect, 4)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.current_method_address()),
-               StackSize(LocMemoryDirect, 4)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::s32JNE,
                StackAddressForward(LocMemoryDirect, 0),
                ConstantAddress(LocMemoryDirect, program.get_constant_address("5")),
                JumpOffsetForward(LocMemoryDirect, 2)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.get_method_address("func5")),
-               StackSize(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::Jump,
                JumpOffsetForward(LocMemoryDirect, 10)),
         Opcode(Bytecode::s32JNE,
@@ -161,7 +291,7 @@ int main() {
                JumpOffsetForward(LocMemoryDirect, 2)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.get_method_address("func4")),
-               StackSize(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::Jump,
                JumpOffsetForward(LocMemoryDirect, 7)),
         Opcode(Bytecode::s32JNE,
@@ -170,7 +300,7 @@ int main() {
                JumpOffsetForward(LocMemoryDirect, 2)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.get_method_address("func3")),
-               StackSize(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::Jump,
                JumpOffsetForward(LocMemoryDirect, 4)),
         Opcode(Bytecode::s32JNE,
@@ -179,7 +309,7 @@ int main() {
                JumpOffsetForward(LocMemoryDirect, 2)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.get_method_address("func2")),
-               StackSize(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::Jump,
                JumpOffsetForward(LocMemoryDirect, 1)),
         Opcode(Bytecode::f32Mul,
@@ -213,13 +343,13 @@ int main() {
                StackAddressForward(LocMemoryDirect, 12)),
         Opcode(Bytecode::Call,
                average_location,
-               StackSize(LocMemoryDirect, 8)), // base+12 result isnt used fyi
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::s32Set,
                ConstantAddress(LocMemoryDirect, program.get_constant_address("5")),
                StackAddressForward(LocMemoryDirect, 12)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.get_method_address("Recursion")),
-               StackSize(LocMemoryDirect, 4)),
+               StackAddressForward(LocMemoryDirect, 0)),
         Opcode(Bytecode::f32JLE,
                GlobalAddress(LocMemoryDirect, 0),
                ConstantAddress(LocMemoryDirect, program.get_constant_address("100.0f")),
@@ -237,14 +367,12 @@ int main() {
                JumpOffsetBackward(LocMemoryDirect, 9)),
         Opcode(Bytecode::Ret, StackSize(LocMemoryDirect, 16))
     });
-    program.register_method<void>("main");
-    program.register_method<float,float,float>("LAverage");
+    //program.register_method<void>("main");
+    //program.register_method<float,float,float>("LAverage");
 
     VM* vm = new VM(VMSTACK_PAGE_SIZE);
 
     std::shared_ptr<VMFixedStack> globals = program.generate_state();
-    // vm->run_method(program, "main", *globals);
-
     auto scriptmain = program.method<void>("main");
     scriptmain(*vm, *globals);
 
@@ -260,4 +388,9 @@ int main() {
     std::cout << "checking: " << avg << "\n";
 
     delete vm;
+}
+
+int main() {
+    compile_demo();
+    return 0;
 }

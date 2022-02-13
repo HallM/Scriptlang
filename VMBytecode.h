@@ -21,12 +21,24 @@ enum class Bytecode: unsigned int {
     s32Mul,
     s32Div,
     s32Mod,
+    s32Less,
+    s32LessEqual,
+    s32Greater,
+    s32GreaterEqual,
+    s32Equal,
+    s32NotEqual,
 
     f32Add,
     f32Sub,
     f32Mul,
     f32Div,
     f32Mod,
+    f32Less,
+    f32LessEqual,
+    f32Greater,
+    f32GreaterEqual,
+    f32Equal,
+    f32NotEqual,
 
     // sets the base plus handles reserving some stack space for a function
     // calls assume that base-P is each param. for example: int f(int a,int b)
@@ -47,6 +59,10 @@ enum class Bytecode: unsigned int {
     // Local: jump forward to relative location
     // Param: jump backward to relative location
     Jump, // [jumpto] _ _
+
+    // bool jumps
+    bJTrue, // a [jumpto]
+    bJFalse,
 
     // conditional jumps
     // JLT [p1] [p2] [jumpto]
@@ -150,6 +166,17 @@ public:
       l2(0),
       l3(0),
       p1(merge_page_offset(param1)),
+      p2(0),
+      p3(0) {}
+
+    Opcode(
+        Bytecode o
+    ) : 
+      op(o),
+      l1(0),
+      l2(0),
+      l3(0),
+      p1(0),
       p2(0),
       p3(0) {}
 };

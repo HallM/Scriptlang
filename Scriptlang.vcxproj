@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Program.cpp" />
+    <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="VM.cpp" />
     <ClCompile Include="VMBytecode.cpp" />
     <ClCompile Include="VMFFI.cpp" />
@@ -152,6 +153,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AST.h" />
+    <ClInclude Include="Compiler.h" />
     <ClInclude Include="Program.h" />
     <ClInclude Include="VM.h" />
     <ClInclude Include="VMBytecode.h" />

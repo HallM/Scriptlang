@@ -47,7 +47,7 @@ private:
 
     void _precall(size_t param_bytes, size_t stack_bytes);
     // void _setup_stackframe(size_t stack_size);
-    void _postcall(size_t stack_bytes);
+    void _postcall();
     void _jump(const VMFixedStack& constants, VMFixedStack& globals, DataLoc l, size_t d);
     bool _run_next(const Program& program, VMFixedStack& globals);
 

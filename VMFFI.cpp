@@ -9,6 +9,6 @@ BytecodeRunnable::~BytecodeRunnable() {}
 
 void
 BytecodeRunnable::invoke(VM& vm, VMFixedStack& s, size_t base) const {
-    vm._precall(_param_size, _stack_reserve);
+    vm._precall(base, _stack_reserve);
     vm._instruction_index = _address;
 }

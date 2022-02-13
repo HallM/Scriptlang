@@ -72,27 +72,36 @@ VM::~VM() {}
 
 void
 VM::run_method(const Program& program, std::string method_name, VMFixedStack& globals) {
+    // clear out any existing run
+    _exec_stack.unreserve_to(0);
+    _exec_stack_top = 0;
+    _base = 0;
+    // TODO:
+    // data.unreserve_to(0);
+
     auto& metadata = program.get_method_metadata(method_name);
     size_t s = program.get_code().size();
     _instruction_index = s;
-    _precall(metadata.param_size, metadata.stack_size);
+    _precall(_base, metadata.stack_size);
     _instruction_index = program.get_method_address(method_name);
     while (_instruction_index < s && _run_next(program, globals)) {}
 }
 
 void
-VM::_precall(size_t param_bytes, size_t stack_bytes) {
+VM::_precall(size_t base, size_t stack_bytes) {
+    //std::cout << "precall before " << _exec_stack_top << " " << _base << " " << _instruction_index << "\n";
     //std::cout << "precall " << param_bytes << "  " << stack_bytes << "\n";
-    //std::cout << "precall before " << _exec_stack_top  << "\n";
-    _exec_stack.reserve(2 * sizeof(size_t));
+    _exec_stack.reserve(3 * sizeof(size_t));
     *_exec_stack.at<size_t>(_exec_stack_top) = _instruction_index;
-    //std::cout << "oldb " << _base << " -> " << data.size() - param_bytes << "\n";
     *_exec_stack.at<size_t>(_exec_stack_top + sizeof(size_t)) = _base;
-    _exec_stack_top += 2 * sizeof(size_t);
-    //std::cout << "precall after " << _exec_stack_top  << "\n";
+    *_exec_stack.at<size_t>(_exec_stack_top + 2*sizeof(size_t)) = data.size();
+    _exec_stack_top += 3 * sizeof(size_t);
 
-    _base = data.size() - param_bytes;
-    data.reserve(stack_bytes);
+    _base = base;
+    size_t reserve = (base + stack_bytes) - data.size();
+    if (reserve > 0) {
+        data.reserve(stack_bytes);
+    }
 }
 
 //void
@@ -102,16 +111,17 @@ VM::_precall(size_t param_bytes, size_t stack_bytes) {
 //}
 
 void
-VM::_postcall(size_t stack_bytes) {
-    //std::cout << "postcall before " << _exec_stack_top  << "\n";
-    _exec_stack_top -= 2 * sizeof(size_t);
-    data.unreserve(stack_bytes);
+VM::_postcall() {
+    _exec_stack_top -= 3 * sizeof(size_t);
     _instruction_index = *_exec_stack.at<size_t>(_exec_stack_top);
-    //std::cout << "popb " << _base << " -> ";
     _base = *_exec_stack.at<size_t>(_exec_stack_top + sizeof(size_t));
-    //std::cout << _base << "\n";
-    _exec_stack.unreserve(2 * sizeof(size_t));
-    //std::cout << "postcall after " << _exec_stack_top  << "\n";
+    size_t previous_top = *_exec_stack.at<size_t>(_exec_stack_top + 2*sizeof(size_t));
+    size_t unreserve = data.size() - previous_top;
+    if (unreserve > 0) {
+        data.unreserve(unreserve);
+    }
+    _exec_stack.unreserve(3 * sizeof(size_t));
+    //std::cout << "postcall after " << _exec_stack_top << " " << _base << " " << _instruction_index << "\n";
 }
 
 void
@@ -198,6 +208,31 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         _setv<float>(constants, globals, aludiv<float>(constants, globals, oc) , oc.l3, oc.p3);
         break;
     }
+    case Bytecode::f32Less: {
+        _setv<bool>(constants, globals, lt<float>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::f32LessEqual: {
+        _setv<bool>(constants, globals, le<float>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::f32Greater: {
+        _setv<bool>(constants, globals, gt<float>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::f32GreaterEqual: {
+        _setv<bool>(constants, globals, ge<float>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::f32Equal: {
+        _setv<bool>(constants, globals, eq<float>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::f32NotEqual: {
+        _setv<bool>(constants, globals, ne<float>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+
     case Bytecode::s32Set: {
         _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
@@ -228,9 +263,33 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         _setv<int>(constants, globals, aludiv<int>(constants, globals, oc) , oc.l3, oc.p3);
         break;
     }
+    case Bytecode::s32Less: {
+        _setv<bool>(constants, globals, lt<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32LessEqual: {
+        _setv<bool>(constants, globals, le<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32Greater: {
+        _setv<bool>(constants, globals, gt<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32GreaterEqual: {
+        _setv<bool>(constants, globals, ge<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32Equal: {
+        _setv<bool>(constants, globals, eq<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32NotEqual: {
+        _setv<bool>(constants, globals, ne<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
 
     case Bytecode::Call: {
-        size_t param_bytes = oc.p2;
+        size_t fn_base = _base + address_offset(oc.p2);
         const IRunnable* r = nullptr;
         if (oc.l1 == LocMemoryDirect) {
             const size_t page = address_page(oc.p1);
@@ -245,17 +304,29 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         else {
             r = _table_value<IRunnable*>(constants, globals, oc.p1);
         }
-        r->invoke(*this, data, data.size() - param_bytes);
+        r->invoke(*this, data, fn_base);
         break;
     }
     case Bytecode::Ret: {
-        size_t stack_bytes = oc.p1;
-        _postcall(stack_bytes);
+        _postcall();
         break;
     }
 
     case Bytecode::Jump: {
         _jump(constants, globals, oc.l1, oc.p1);
+        break;
+    }
+
+    case Bytecode::bJTrue: {
+        if (_getv<bool>(constants, globals, oc.l1, oc.p1)) {
+            _jump(constants, globals, oc.l2, oc.p2);
+        }
+        break;
+    }
+    case Bytecode::bJFalse: {
+        if (!_getv<bool>(constants, globals, oc.l1, oc.p1)) {
+            _jump(constants, globals, oc.l2, oc.p2);
+        }
         break;
     }
 

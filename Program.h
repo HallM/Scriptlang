@@ -73,13 +73,8 @@ public:
         return Callable<Ret, Args...>(*this, name);
     }
 
-    template <typename Ret, typename... Args>
-    void register_method(std::string name) {
-        std::vector<std::type_index> rp = {
-            typeid(Ret),
-            typeid(Args)...
-        };
-        _function_ret_params[name] = rp;
+    void register_method(std::string name, std::vector<std::type_index> types) {
+        _function_ret_params[name] = types;
     }
 
     // Generates a fixed stack containing all globals.
@@ -95,12 +90,17 @@ public:
     void add_constant(std::string name, T value) {
         size_t s = sizeof(T);
         size_t loc = _constants.size();
+        std::cout << "adding const " << name << " at " << loc << " with " << value << "\n";
         _constants.reserve(s);
         *_constants.at<T>(loc) = value;
         _constant_addresses[name] = loc;
     }
     void add_builtin(std::string name, IRunnable* runnable);
     void add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code);
+
+    void add_code(std::vector<Opcode> code);
+    void add_global_index(std::string name, size_t size, size_t addr);
+    void add_method_addr(std::string name, size_t param_size, size_t stack_size, size_t address);
 
     size_t get_global_address(std::string name) const;
     size_t get_constant_address(std::string name) const;

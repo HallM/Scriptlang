@@ -27,13 +27,28 @@ void
 Program::add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code) {
     size_t addr = _code.size();
     std::copy(method_code.begin(), method_code.end(), std::back_inserter(_code));
-    _function_addresses[name] = addr;
-
-    _function_metadata[addr] = MethodMetadata{param_size, stack_size};
-
-    IRunnable* runnable = new BytecodeRunnable(addr, param_size, stack_size);
-    _methods[addr] = runnable;
+    add_method_addr(name, param_size, stack_size, addr);
 }
+
+void
+Program::add_global_index(std::string name, size_t size, size_t addr) {
+    _global_addresses[name] = addr;
+    _globals_size = addr + size;
+}
+
+void
+Program::add_code(std::vector<Opcode> code) {
+    std::copy(code.begin(), code.end(), std::back_inserter(_code));
+}
+
+void
+Program::add_method_addr(std::string name, size_t param_size, size_t stack_size, size_t address) {
+    _function_addresses[name] = address;
+    _function_metadata[address] = MethodMetadata{param_size, stack_size};
+    IRunnable* runnable = new BytecodeRunnable(address, param_size, stack_size);
+    _methods[address] = runnable;
+}
+
 
 size_t
 Program::get_global_address(std::string name) const {
