@@ -45,7 +45,7 @@ struct StructType {
 struct MethodTypeParameter {
     std::string type;
 };
-struct TypeMethod {
+struct MethodType {
     std::string return_type;
     std::vector<MethodTypeParameter> parameters;
 };
@@ -53,8 +53,8 @@ struct TypeMethod {
 struct TypeInfo {
     std::string name;
     size_t size;
-    std::variant<PrimitiveType, StructType, TupleType, EnumType, TypeMethod> type;
-    std::vector<TypeMethod> methods;
+    std::variant<PrimitiveType, StructType, TupleType, EnumType, MethodType> type;
+    std::vector<MethodType> methods;
 };
 
 struct Node;
@@ -101,9 +101,25 @@ enum class BinaryOps {
 
 struct BinaryOperation {
     BinaryOps op;
-    bool overwrite_lhs;
     Node* lhs;
     Node* rhs;
+};
+
+
+enum class UnaryOps {
+    // int/float types
+    Negate,
+
+    // int types only
+    BitNot,
+
+    // bool types
+    Not,
+};
+
+struct UnaryOperation {
+    UnaryOps op;
+    Node* value;
 };
 
 struct SetOperation {
@@ -133,6 +149,10 @@ struct IfStmt {
     Node* condition;
     Node* then;
     std::optional<Node*> otherwise;
+};
+struct DoWhile {
+    Node* block;
+    Node* condition;
 };
 
 struct MethodDeclaration {
@@ -172,6 +192,7 @@ struct Node {
         GlobalBlock,
         Block,
         IfStmt,
+        DoWhile,
         MethodDeclaration,
         MethodDefinition,
         ReturnValue,

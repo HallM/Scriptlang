@@ -15,17 +15,16 @@ public:
     VM(size_t stack_size);
     ~VM();
 
-    // Only needed when calling an exported method with a return and no params.
     template <typename T>
     size_t reserve_return() {
         size_t addr = data.size();
-        data.reserve(sizeof(T));
+        data.reserve(runtimesizeof<T>());
         return addr;
     }
     template <typename T>
     size_t push_parameters(T v) {
         size_t addr = data.size();
-        data.reserve(sizeof(T));
+        data.reserve(runtimesizeof<T>());
         *data.at<T>(addr) = v;
         return addr;
     }
@@ -39,8 +38,8 @@ public:
     T get_return(size_t addr) {
         return *data.at<T>(addr);
     }
-
-    void run_method(const Program& program, std::string method_name, VMFixedStack& globals);
+    void clear_state();
+    void run_method(const Program& program, VMFixedStack& globals, size_t address, size_t stack_size);
 
 private:
     friend BytecodeRunnable;

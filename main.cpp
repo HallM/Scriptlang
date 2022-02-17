@@ -9,104 +9,182 @@
 #include <utility>
 
 #include "VM.h"
+#include "VMFFI.h"
 #include "Program.h"
 #include "AST.h"
 #include "Compiler.h"
 
+const float iterate_to = 1000000.0f;
+
 void compile_demo() {
-    Node avgdecl;
-    avgdecl.data = MethodDeclaration{"average", "f32(f32,f32)"};
-    Node maindecl;
-    maindecl.data = MethodDeclaration{"main", "void(bool)"};
+    auto m_beg = std::chrono::steady_clock::now();
 
-    Node global;
-    global.data = VariableDeclaration{"N", "f32"};
+    Node avgdecl = { MethodDeclaration{"average", "f32(f32,f32)"} };
+    Node func5decl = { MethodDeclaration{"func5", "void()"} };
+    Node func4decl = { MethodDeclaration{"func4", "void()"} };
+    Node func3decl = { MethodDeclaration{"func3", "void()"} };
+    Node func2decl = { MethodDeclaration{"func2", "void()"} };
+    Node recursiondecl = { MethodDeclaration{"recursion", "void(s32)"} };
+    Node maindecl = { MethodDeclaration{"main", "void()"} };
 
-    Node lhs;
-    lhs.data = Identifier{"x"};
-    Node rhs;
-    rhs.data = Identifier{"y"};
+    Node global = { VariableDeclaration{"N", "f32"} };
 
-    Node denom;
-    denom.data = ConstF32{2.0f};
-    Node sum;
-    sum.data = BinaryOperation{BinaryOps::Add, false, &lhs, &rhs};
-    Node div;
-    div.data = BinaryOperation{BinaryOps::Divide, false, &sum, &denom};
-    Node avgret;
-    avgret.data = ReturnValue{&div};
+    // special re-usables
+    Node identN = { Identifier{"N"} };
+    Node identaverage = { Identifier{"average"} };
+    Node identRecursion = { Identifier{"recursion"} };
 
-    Node avgblock;
-    avgblock.data = Block{ {&avgret} };
+    // const reusables
+    Node c_0f = { ConstF32{0.0f} };
+    Node c_1f = { ConstF32{1.0f} };
+    Node c_2f = { ConstF32{2.0f} };
 
-    Node avgm;
-    avgm.data = MethodDefinition{"average", {"x", "y"}, &avgblock};
 
-    Node varxdec;
-    varxdec.data = VariableDeclaration{"x", "f32"};
+    // average(x,y) = (x + y) / 2
+    Node identx = { Identifier{"x"} };
+    Node identy = { Identifier{"y"} };
+    Node sumxy = { BinaryOperation{BinaryOps::Add, &identx, &identy} };
 
-    Node callp1;
-    callp1.data = ConstF32{2.0f};
-    Node callp1pn;
-    callp1pn.data = CallParam{&callp1};
-    Node callp2;
-    callp2.data = ConstF32{3.0f};
-    Node callp2pn;
-    callp2pn.data = CallParam{&callp2};
-    Node avgid;
-    avgid.data = Identifier{"average"};
-    Node callavg;
-    callavg.data = MethodCall{&avgid, {&callp1pn, &callp2pn}};
+    Node avgxy = { BinaryOperation{BinaryOps::Divide, &sumxy, &c_2f} };
+    Node avgret = { ReturnValue{&avgxy} };
 
-    Node thenvarx;
-    thenvarx.data = Identifier{"x"};
-    Node setx;
-    setx.data = SetOperation{{}, &thenvarx, &callavg};
-    Node thenblock;
-    thenblock.data = Block{ {&setx} };
+    Node avgblock = { Block{ {&avgret} } };
+    Node avgm = { MethodDefinition{"average", {"x", "y"}, &avgblock} };
 
-    Node elsevarx;
-    elsevarx.data = Identifier{"x"};
-    Node elseval;
-    elseval.data = ConstF32{123.0f};
-    Node elsesetx;
-    elsesetx.data = SetOperation{{}, &elsevarx, &elseval};
-    Node elseblock;
-    elseblock.data = Block{ {&elsesetx} };
+    // func5() = N += average(n, n)
+    Node f5avgp = { CallParam{&identN} };
+    Node f5avg = { MethodCall{&identaverage, {&f5avgp, &f5avgp}} };
+    Node f5addavgtoN = { SetOperation{BinaryOps::Add, &identN, &f5avg} };
+    Node func5block = { Block{ {&f5addavgtoN} } };
+    Node func5def = { MethodDefinition{"func5", {}, &func5block} };
 
-    Node doextern;
-    doextern.data = Identifier{"doextern"};
-    Node ifset;
-    ifset.data = IfStmt{&doextern, &thenblock, &elseblock};
+    // func4() = N += 2*average(n+1, n+2)
+    Node nplus1 = { BinaryOperation{BinaryOps::Add, &identN, &c_1f} };
+    Node nplus2 = { BinaryOperation{BinaryOps::Add, &identN, &c_2f} };
+    Node f4avgp1 = { CallParam{&nplus1} };
+    Node f4avgp2 = { CallParam{&nplus2} };
+    Node f4avg = { MethodCall{&identaverage, {&f4avgp1, &f4avgp2}} };
+    Node f4avgtimes2 = { BinaryOperation{BinaryOps::Multiply, &f4avg, &c_2f} };
+    Node f4addavgtoN = { SetOperation{BinaryOps::Add, &identN, &f4avgtimes2} };
+    Node func4block = { Block{ {&f4addavgtoN} } };
+    Node func4def = { MethodDefinition{"func4", {}, &func4block} };
 
-    Node varNset;
-    varNset.data = Identifier{"N"};
-    Node varNsetx;
-    varNsetx.data = Identifier{"x"};
-    Node setvarn;
-    setvarn.data = SetOperation{{}, &varNset, &varNsetx};
+    // func3() = n *= 2.1
+    Node c_2_1f = { ConstF32{2.1f} };
+    Node f3multoN = { SetOperation{BinaryOps::Multiply, &identN, &c_2_1f} };
+    Node func3block = { Block{ {&f3multoN} } };
+    Node func3def = { MethodDefinition{"func3", {}, &func3block} };
 
-    Node mainret;
-    mainret.data = ReturnValue{};
+    // func2() = n /= 3.5
+    Node c_3_5f = { ConstF32{3.5f} };
+    Node f2divtoN = { SetOperation{BinaryOps::Divide, &identN, &c_3_5f} };
+    Node func2block = { Block{ {&f2divtoN} } };
+    Node func2def = { MethodDefinition{"func2", {}, &func2block} };
 
-    Node mainblock;
-    mainblock.data = Block{ {&varxdec, &ifset, &setvarn, &mainret} };
-    Node mainm;
-    mainm.data = MethodDefinition{"main", {"doextern"}, &mainblock};
+    // recursion(rec)
+    Node identrec = { Identifier{"rec"} };
+    Node c_1s = { ConstS32{1} };
+    Node c_2s = { ConstS32{2} };
+    Node c_3s = { ConstS32{3} };
+    Node c_4s = { ConstS32{4} };
+    Node c_5s = { ConstS32{5} };
+    Node c_1_5f = { ConstF32{1.5f} };
+    // if rec >= 1
+    Node recgt1 = { BinaryOperation{BinaryOps::GreaterEqual, &identrec, &c_1s} };
+    // then recursion(rec-1)
+    Node recminus1 = { BinaryOperation{BinaryOps::Subtract, &identrec, &c_1s} };
+    Node recrm1p = { CallParam{&recminus1} };
+    Node recrm1call = { MethodCall{&identRecursion, {&recrm1p}} };
+    Node ifrecgt1block = { Block { {&recrm1call} } };
+    Node ifrecgt1 = { IfStmt{&recgt1, &ifrecgt1block, {}} };
+    // else n *= 1.5
+    Node recf0nmul15 = { SetOperation{BinaryOps::Multiply, &identN, &c_1_5f} };
+    Node recf0block = { Block { {&recf0nmul15} } };
+    // elseif rec == 2, call func2
+    Node identfunc2 = { Identifier{"func2"} };
+    Node receq2 = { BinaryOperation{BinaryOps::Eq, &identrec, &c_2s} };
+    Node recf2call = { MethodCall{&identfunc2, {}} };
+    Node recf2block = { Block { {&recf2call} } };
+    Node ifrec2 = { IfStmt{&receq2, &recf2block, &recf0block} };
+    // elseif rec == 3, call func3
+    Node identfunc3 = { Identifier{"func3"} };
+    Node receq3 = { BinaryOperation{BinaryOps::Eq, &identrec, &c_3s} };
+    Node recf3call = { MethodCall{&identfunc3, {}} };
+    Node recf3block = { Block { {&recf3call} } };
+    Node ifrec3 = { IfStmt{&receq3, &recf3block, &ifrec2} };
+    // elseif rec == 4, call func4
+    Node identfunc4 = { Identifier{"func4"} };
+    Node receq4 = { BinaryOperation{BinaryOps::Eq, &identrec, &c_4s} };
+    Node recf4call = { MethodCall{&identfunc4, {}} };
+    Node recf4block = { Block { {&recf4call} } };
+    Node ifrec4 = { IfStmt{&receq4, &recf4block, &ifrec3} };
+    // elseif rec == 5, call func5
+    Node identfunc5 = { Identifier{"func5"} };
+    Node receq5 = { BinaryOperation{BinaryOps::Eq, &identrec, &c_5s} };
+    Node recf5call = { MethodCall{&identfunc5, {}} };
+    Node recf5block = { Block { {&recf5call} } };
+    Node ifrec5 = { IfStmt{&receq5, &recf5block, &ifrec4} };
+    // end
+    Node recblock = { Block{ {&ifrecgt1, &ifrec5} } };
+    Node recdef = { MethodDefinition{"recursion", {"rec"}, &recblock} };
 
-    Node root;
-    root.data = GlobalBlock{ {&avgdecl, &maindecl, &global, &mainm, &avgm} };
+    // main:
+    // N = 0.0f
+    Node setNto0 = { SetOperation{{}, &identN, &c_0f} };
+
+    Node varidec = { VariableDeclaration{"i", "f32"} };
+    // for (i = 0; ...
+    Node identi = { Identifier{"i"} };
+    Node setito0 = { SetOperation{{}, &identi, &c_0f} };
+
+    // ... i <= 1000000.0f; ...
+    Node c_endgoal = { ConstF32{iterate_to} };
+    Node forcomparison = { BinaryOperation{BinaryOps::LessEqual, &identi, &c_endgoal} };
+
+    // i += 0.25)
+    Node c_025f = { ConstF32{0.25f} };
+    Node foriter = { SetOperation{BinaryOps::Add, &identi, &c_025f} };
+
+    // average(i, i+1)
+    // i
+    Node avgp1 = { CallParam{&identi} };
+    // i+1
+    Node iplus1 = { BinaryOperation{BinaryOps::Add, &identi, &c_1f} };
+    Node avgp2 = { CallParam{&iplus1} };
+    // average()
+    Node callavg = { MethodCall{&identaverage, {&avgp1, &avgp2}} };
+
+    // recursion(5)
+    Node recp1 = { CallParam{&c_5s} };
+    Node callrec = { MethodCall{&identRecursion, {&recp1}} };
+
+    // if N > 100: N = 0
+    Node c_100f = { ConstF32{100.0f} };
+    Node nlt100 = { BinaryOperation{BinaryOps::Greater, &identN, &c_100f} };
+    Node ifnlt100 = { IfStmt{&nlt100, &setNto0, {}} };
+
+    Node forblock = { Block { {&callavg, &callrec, &ifnlt100, &foriter} } };
+    Node forloop = { DoWhile{&forblock, &forcomparison} };
+    Node forstartif = { IfStmt{&forcomparison, &forloop, {}} };
+
+    Node mainblock = { Block{ {&setNto0, &varidec, &setito0, &forstartif,} } };
+    Node mainm = { MethodDefinition{"main", {}, &mainblock} };
+
+    Node root = { GlobalBlock{ {
+        &avgdecl, &func5decl, &func4decl, &func3decl, &func2decl, &recursiondecl, &maindecl,
+        &global,
+        &avgm, &func5def, &func4def, &func3def, &func2def, &recdef, &mainm
+        } } };
 
     TypeTable types;
-
     types["void"] = TypeInfo{"void", 0, PrimitiveType::empty};
-    types["bool"] = TypeInfo{"bool", 4, PrimitiveType::boolean};
-    types["s32"] = TypeInfo{"s32", sizeof(int), PrimitiveType::s32};
-    types["f32"] = TypeInfo{"f32", sizeof(float), PrimitiveType::f32};
+    types["bool"] = TypeInfo{"bool", runtimesizeof<bool>(), PrimitiveType::boolean};
+    types["s32"] = TypeInfo{"s32", runtimesizeof<int>(), PrimitiveType::s32};
+    types["f32"] = TypeInfo{"f32", runtimesizeof<float>(), PrimitiveType::f32};
     types["f32(f32,f32)"] = TypeInfo{
         "f32(f32,f32)",
         0,
-        TypeMethod{
+        MethodType{
             "f32",
             {
                 MethodTypeParameter{"f32"},
@@ -114,35 +192,51 @@ void compile_demo() {
             }
         }
     };
-    types["void(bool)"] = TypeInfo{
-        "void(bool)",
+    types["void()"] = TypeInfo{
+        "void()",
         0,
-        TypeMethod{
+        MethodType{
+            "void",
+            {}
+        }
+    };
+    types["void(s32)"] = TypeInfo{
+        "void(s32)",
+        0,
+        MethodType{
             "void",
             {
-                MethodTypeParameter{"bool"},
+                MethodTypeParameter{"s32"},
             }
         }
     };
 
     auto program = Compile(&root, types, {});
+    auto dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
+    std::cout << "compile time: " << dur << "s\n";
+
+    std::cout << "compiled size: " << program->get_code().size() << "\n";
+
+    m_beg = std::chrono::steady_clock::now();
+
     auto scriptaverage = program->method<float,float,float>("average");
-    auto scriptmain = program->method<void,bool>("main");
+    auto scriptmain = program->method<void>("main");
 
     std::shared_ptr<VMFixedStack> globals = program->generate_state();
 
     VM* vm = new VM(VMSTACK_PAGE_SIZE);
 
-    float avg = scriptaverage(*vm, *globals, 3, 2);
-    std::cout << "checking avg: " << avg << "\n-----\n";
-
-    scriptmain(*vm, *globals, true);
+    scriptmain(*vm, *globals);
     std::cout << "checking N: " << globals->cvalue<float>(program->get_global_address("N")) << "\n";
+
+    dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
+    std::cout << "run time: " << dur << "s\n";
+
+    float avg = scriptaverage(*vm, *globals, 3, 2);
+    std::cout << "-----\nchecking avg: " << avg << "\n";
 }
 
 void vm_demo() {
-    auto m_beg = std::chrono::steady_clock::now();
-
     BuiltinRunnable<float, float, float> average([](float a, float b) -> float {
         //std::cout << a << " " << b << " " << (a + b)/2.0f << "\n";
         return (a + b) / 2.0f;
@@ -150,8 +244,6 @@ void vm_demo() {
     BuiltinRunnable<void, float> printf32([](float a) {
         std::cout << a << "\n";
     });
-
-    float iterate_to = 1.0f; // 1000000.0f
 
     // the lua application including compilation was 1 second 249ms (1.25s)
     // this app was 1.32s. Lua 0.0031ms per loop. THis 0.0033ms per loop.
@@ -275,7 +367,7 @@ void vm_demo() {
                StackAddressForward(LocMemoryDirect, 4)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.current_method_address()),
-               StackAddressForward(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 4)),
         Opcode(Bytecode::s32JNE,
                StackAddressForward(LocMemoryDirect, 0),
                ConstantAddress(LocMemoryDirect, program.get_constant_address("5")),
@@ -343,13 +435,13 @@ void vm_demo() {
                StackAddressForward(LocMemoryDirect, 12)),
         Opcode(Bytecode::Call,
                average_location,
-               StackAddressForward(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 8)),
         Opcode(Bytecode::s32Set,
                ConstantAddress(LocMemoryDirect, program.get_constant_address("5")),
                StackAddressForward(LocMemoryDirect, 12)),
         Opcode(Bytecode::Call,
                ScriptCall(LocMemoryDirect, program.get_method_address("Recursion")),
-               StackAddressForward(LocMemoryDirect, 0)),
+               StackAddressForward(LocMemoryDirect, 12)),
         Opcode(Bytecode::f32JLE,
                GlobalAddress(LocMemoryDirect, 0),
                ConstantAddress(LocMemoryDirect, program.get_constant_address("100.0f")),
@@ -367,8 +459,11 @@ void vm_demo() {
                JumpOffsetBackward(LocMemoryDirect, 9)),
         Opcode(Bytecode::Ret, StackSize(LocMemoryDirect, 16))
     });
-    //program.register_method<void>("main");
-    //program.register_method<float,float,float>("LAverage");
+    program.late_register_method<void>("main");
+    program.late_register_method<float,float,float>("LAverage");
+    std::cout << "hand written size: " << program.get_code().size() << "\n";
+
+    auto m_beg = std::chrono::steady_clock::now();
 
     VM* vm = new VM(VMSTACK_PAGE_SIZE);
 
@@ -380,8 +475,7 @@ void vm_demo() {
     std::cout << "N = " << N << "\n";
 
     auto dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
-
-    std::cout << "time: " << dur << "s\n";
+    std::cout << "run time: " << dur << "s\n";
 
     auto scriptaverage = program.method<float,float,float>("LAverage");
     float avg = scriptaverage(*vm, *globals, 1, 2);
@@ -392,5 +486,7 @@ void vm_demo() {
 
 int main() {
     compile_demo();
+    //std::cout << "\n+++++\n";
+    //vm_demo();
     return 0;
 }

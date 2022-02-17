@@ -71,20 +71,22 @@ VM::VM(size_t stack_size)
 VM::~VM() {}
 
 void
-VM::run_method(const Program& program, std::string method_name, VMFixedStack& globals) {
-    // clear out any existing run
-    _exec_stack.unreserve_to(0);
+VM::clear_state() {
     _exec_stack_top = 0;
+    _exec_stack.unreserve_to(0);
     _base = 0;
-    // TODO:
-    // data.unreserve_to(0);
+    data.unreserve_to(0);
+    _instruction_index = 0;
+}
 
-    auto& metadata = program.get_method_metadata(method_name);
-    size_t s = program.get_code().size();
-    _instruction_index = s;
-    _precall(_base, metadata.stack_size);
-    _instruction_index = program.get_method_address(method_name);
-    while (_instruction_index < s && _run_next(program, globals)) {}
+void
+VM::run_method(const Program& program, VMFixedStack& globals, size_t address, size_t stack_size) {
+    // set IP to the end, so that returning will jump to the end/break
+    size_t program_size = program.get_code().size();
+    _instruction_index = program_size;
+    _precall(_base, stack_size);
+    _instruction_index = address;
+    while (_instruction_index < program_size && _run_next(program, globals)) {}
 }
 
 void
@@ -285,6 +287,25 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     }
     case Bytecode::s32NotEqual: {
         _setv<bool>(constants, globals, ne<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+
+    case Bytecode::bAnd: {
+        bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) && _getv<bool>(constants, globals, oc.l2, oc.p2);
+        _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::bOr: {
+        bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) || _getv<bool>(constants, globals, oc.l2, oc.p2);
+        _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::bEqual: {
+        _setv<bool>(constants, globals, eq<bool>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::bNotEqual: {
+        _setv<bool>(constants, globals, ne<bool>(constants, globals, oc) , oc.l3, oc.p3);
         break;
     }
 

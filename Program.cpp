@@ -6,7 +6,7 @@
 Program::Program(size_t const_bytes) : _globals_size(0), _constants(const_bytes) {}
 Program::~Program() {
     for (auto& it : _methods) {
-        delete it.second;
+        delete it;
     }
 }
 
@@ -46,7 +46,7 @@ Program::add_method_addr(std::string name, size_t param_size, size_t stack_size,
     _function_addresses[name] = address;
     _function_metadata[address] = MethodMetadata{param_size, stack_size};
     IRunnable* runnable = new BytecodeRunnable(address, param_size, stack_size);
-    _methods[address] = runnable;
+    _methods.push_back(runnable);
 }
 
 

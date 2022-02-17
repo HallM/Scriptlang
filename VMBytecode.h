@@ -40,6 +40,11 @@ enum class Bytecode: unsigned int {
     f32Equal,
     f32NotEqual,
 
+    bAnd,
+    bOr,
+    bEqual,
+    bNotEqual,
+
     // sets the base plus handles reserving some stack space for a function
     // calls assume that base-P is each param. for example: int f(int a,int b)
     // a is base-4
@@ -106,6 +111,8 @@ struct BytecodeParam {
     DataLoc loc;
     size_t page;
     size_t offset;
+public:
+    bool operator==(const BytecodeParam& r) const;
 };
 
 BytecodeParam ConstantAddress(DataLoc loc, size_t offset);

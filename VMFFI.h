@@ -7,6 +7,18 @@
 
 class VM;
 
+template<typename T>
+size_t
+runtimesizeof() {
+    size_t s = sizeof(T);
+    if (s == 0) {
+        return 0;
+    }
+    // adjust
+    size_t adjusted = (((s - 1) / 4) + 1) * 4;
+    return adjusted;
+}
+
 class IRunnable {
 public:
     virtual ~IRunnable() = default;
@@ -40,7 +52,7 @@ private:
     template <typename Af, typename As, typename... Ar>
     void _set_offset(size_t index, size_t offset) {
         _poffsets[index] = offset;
-        size_t loc = offset + sizeof(Af);
+        size_t loc = offset + runtimesizeof<Af>();
         _set_offset<As, Ar...>(index + 1, loc);
     }
     template <typename Af>
@@ -77,7 +89,7 @@ private:
     template <typename Af, typename As, typename... Ar>
     void _set_offset(size_t index, size_t offset) {
         _poffsets[index] = 0;
-        size_t loc = offset + sizeof(Af);
+        size_t loc = offset + runtimesizeof<Af>();
         _set_offset<As, Ar...>(index + 1, loc);
     }
     template <typename Af>

@@ -21,23 +21,28 @@ class Program;
 template <typename Ret, typename... Args>
 class Callable {
 public:
-    Callable(const Program& p, std::string name) : _p(p), _name(name) {}
+    Callable(const Program& p, size_t address, size_t stack_size) :
+        _p(p),
+        _address(address),
+        _stack_size(stack_size) {}
 
     Ret operator()(VM& vm, VMFixedStack& globals, Args... args) {
         size_t ret = 0;
+        vm.clear_state();
         if constexpr (sizeof...(Args) > 0) {
             vm.push_parameters<Args...>(args...);
         } else if constexpr (!std::is_void<Ret>::value) {
             vm.reserve_return<Ret>();
         }
-        vm.run_method(_p, _name, globals);
+        vm.run_method(_p, globals, _address, _stack_size);
         if constexpr (!std::is_void<Ret>::value) {
             return vm.get_return<Ret>(0);
         }
     }
 private:
     const Program& _p;
-    std::string _name;
+    size_t _address;
+    size_t _stack_size;
 };
 
 // Program is a set of compiled instructions and information to find addresses.
@@ -70,27 +75,35 @@ public:
             }
         }
 
-        return Callable<Ret, Args...>(*this, name);
+        size_t address = get_method_address(name);
+        size_t stack_size = get_method_metadata(address).stack_size;
+        return Callable<Ret, Args...>(*this, address, stack_size);
     }
 
     void register_method(std::string name, std::vector<std::type_index> types) {
         _function_ret_params[name] = types;
     }
-
+    template <typename Ret, typename... Args>
+    void late_register_method(std::string name) {
+        std::vector<std::type_index> rp = {
+            typeid(Ret),
+            typeid(Args)...
+        };
+        register_method(name, rp);
+    }
     // Generates a fixed stack containing all globals.
     std::shared_ptr<VMFixedStack> generate_state();
 
     template <typename T>
     void add_global(std::string name) {
-        size_t s = sizeof(T);
+        size_t s = runtimesizeof<T>();
         _global_addresses[name] = _globals_size;
         _globals_size += s;
     }
     template <typename T>
     void add_constant(std::string name, T value) {
-        size_t s = sizeof(T);
+        size_t s = runtimesizeof<T>();
         size_t loc = _constants.size();
-        std::cout << "adding const " << name << " at " << loc << " with " << value << "\n";
         _constants.reserve(s);
         *_constants.at<T>(loc) = value;
         _constant_addresses[name] = loc;
@@ -131,7 +144,8 @@ private:
     std::vector<IRunnable*> _builtins;
     std::vector<Opcode> _code;
     VMFixedStack _constants;
-    std::unordered_map<size_t, IRunnable*> _methods;
+    //std::unordered_map<size_t, IRunnable*> _methods;
+    std::vector<IRunnable*> _methods;
 
     std::unordered_map<std::string, size_t> _builtin_addresses;
     std::unordered_map<std::string, size_t> _function_addresses;

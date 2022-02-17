@@ -1,5 +1,10 @@
 #include "VMBytecode.h"
 
+bool
+BytecodeParam::operator==(const BytecodeParam& r) const {
+    return (this->loc == r.loc) && (this->page == r.page) && (this->offset == r.offset);
+}
+
 BytecodeParam
 ConstantAddress(DataLoc loc, size_t offset) {
     return {loc, 0, offset};
