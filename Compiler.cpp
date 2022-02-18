@@ -881,21 +881,32 @@ link(compiler_wip& wip) {
         if (!wip.methods[method_index].defined) {
             throw "Method never defined";
         }
-        BytecodeParam linked = ScriptCall(LocMemoryDirect, method_index);
-        switch (ml.param) {
-        case 0:
-            bc.l1 = linked.loc;
-            bc.p1 = merge_page_offset(linked);
-            break;
-        case 1:
-            bc.l2 = linked.loc;
-            bc.p2 = merge_page_offset(linked);
-            break;
-        case 2:
-            bc.l3 = linked.loc;
-            bc.p3 = merge_page_offset(linked);
-            break;
+        size_t diff = 0;
+        if (ml.index >= wip.methods[method_index].address) {
+            diff = ml.index - wip.methods[method_index].address;
         }
+        else {
+            diff = wip.methods[method_index].address - ml.index;
+        }
+
+        BytecodeParam linked;
+        if (diff < 0xFFFF) {
+            if (ml.index >= wip.methods[method_index].address) {
+                linked = FastCallBackward(LocMemoryDirect, diff + 1);
+            }
+            else {
+                linked = FastCallForward(LocMemoryDirect, diff - 1);
+            }
+        }
+        else {
+            linked = ScriptCall(LocMemoryDirect, method_index);
+        }
+
+        bc.l1 = linked.loc;
+        bc.p1 = merge_page_offset(linked);
+        // We don't touch the base (p2)
+        bc.l3 = LocMemoryDirect;
+        bc.p3 = wip.methods[method_index].stack_bytes;
     }
 
     for (auto& ll : wip.labellinks) {

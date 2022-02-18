@@ -47,7 +47,17 @@ ScriptCall(DataLoc loc, size_t offset) {
 
 BytecodeParam
 ExternalCall(DataLoc loc, size_t offset) {
+    return {loc, 1, offset};
+}
+
+BytecodeParam
+FastCallForward(DataLoc loc, size_t offset) {
     return {loc, 2, offset};
+}
+
+BytecodeParam
+FastCallBackward(DataLoc loc, size_t offset) {
+    return {loc, 3, offset};
 }
 
 BytecodeParam

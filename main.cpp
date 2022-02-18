@@ -14,7 +14,7 @@
 #include "AST.h"
 #include "Compiler.h"
 
-const float iterate_to = 1000000.0f;
+const float iterate_to = 10000.0f;
 
 void compile_demo() {
     auto m_beg = std::chrono::steady_clock::now();

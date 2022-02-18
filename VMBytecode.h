@@ -126,6 +126,8 @@ BytecodeParam JumpOffsetBackward(DataLoc loc, size_t offset);
 
 BytecodeParam ScriptCall(DataLoc loc, size_t offset);
 BytecodeParam ExternalCall(DataLoc loc, size_t offset);
+BytecodeParam FastCallForward(DataLoc loc, size_t offset);
+BytecodeParam FastCallBackward(DataLoc loc, size_t offset);
 BytecodeParam StackSize(DataLoc loc, size_t bytes);
 
 size_t merge_page_offset(BytecodeParam param);

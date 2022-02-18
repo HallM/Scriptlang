@@ -315,17 +315,31 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         if (oc.l1 == LocMemoryDirect) {
             const size_t page = address_page(oc.p1);
             const size_t offset = address_offset(oc.p1);
-            if (page == 0) {
+            size_t stack = oc.p3;
+            switch (page) {
+            case 0:
                 r = program.get_method_runnable(offset);
-            }
-            else {
+                r->invoke(*this, data, fn_base);
+                break;
+            case 1:
                 r = program.get_builtin_runnable(offset);
+                r->invoke(*this, data, fn_base);
+                break;
+            case 2:
+                _precall(fn_base, stack);
+                _instruction_index += offset;
+                break;
+            default:
+            case 3:
+                _precall(fn_base, stack);
+                _instruction_index -= offset;
+                break;
             }
         }
         else {
             r = _table_value<IRunnable*>(constants, globals, oc.p1);
+            r->invoke(*this, data, fn_base);
         }
-        r->invoke(*this, data, fn_base);
         break;
     }
     case Bytecode::Ret: {
