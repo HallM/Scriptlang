@@ -79,11 +79,11 @@ std::unordered_map<BinaryOps, operinfo> binary_opcode(std::string type) {
             {BinaryOps::LessEqual, {Bytecode::s32LessEqual, type_bool}},
             {BinaryOps::Greater, {Bytecode::s32Greater, type_bool}},
             {BinaryOps::GreaterEqual, {Bytecode::s32GreaterEqual, type_bool}},
-            //{BinaryOps::BitShiftLeft, },
-            //{BinaryOps::BitShiftRight, },
-            //{BinaryOps::BitAnd, },
-            //{BinaryOps::BitOr, },
-            //{BinaryOps::BitXor, },
+            {BinaryOps::BitShiftLeft, {Bytecode::s32ShiftLeft, type_s32}},
+            {BinaryOps::BitShiftRight, {Bytecode::s32ShiftRight, type_s32}},
+            {BinaryOps::BitAnd, {Bytecode::s32BitAnd, type_s32}},
+            {BinaryOps::BitOr, {Bytecode::s32BitOr, type_s32}},
+            {BinaryOps::BitXor, {Bytecode::s32BitXor, type_s32}},
         };
     } else if (type == type_f32) {
         return {

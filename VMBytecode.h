@@ -29,6 +29,11 @@ enum class Bytecode: size_t {
     s32NotEqual,
     s32Negate, // [a] [out]
     s32BitNot, // [a] [out]
+    s32BitAnd,
+    s32BitOr,
+    s32BitXor,
+    s32ShiftLeft,
+    s32ShiftRight,
 
     f32Add,
     f32Sub,

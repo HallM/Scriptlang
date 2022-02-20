@@ -298,7 +298,27 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::s32BitNot: {
-        _setv<int>(constants, globals, bitnot<int>(constants, globals, oc) , oc.l2, oc.p2);
+        _setv<int>(constants, globals, alubitnot<int>(constants, globals, oc) , oc.l2, oc.p2);
+        break;
+    }
+    case Bytecode::s32BitAnd: {
+        _setv<int>(constants, globals, alubitand<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32BitOr: {
+        _setv<int>(constants, globals, alubitor<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32BitXor: {
+        _setv<int>(constants, globals, alubitxor<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32ShiftLeft: {
+        _setv<int>(constants, globals, alubitshl<int>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::s32ShiftRight: {
+        _setv<int>(constants, globals, alubitshr<int>(constants, globals, oc) , oc.l3, oc.p3);
         break;
     }
 
@@ -321,7 +341,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::bNot: {
-        _setv<bool>(constants, globals, bitnot<bool>(constants, globals, oc) , oc.l2, oc.p2);
+        _setv<bool>(constants, globals, alubitnot<bool>(constants, globals, oc) , oc.l2, oc.p2);
         break;
     }
 

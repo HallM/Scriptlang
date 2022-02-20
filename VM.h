@@ -166,9 +166,49 @@ private:
         return r;
     }
     template<typename NT>
-    NT bitnot(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+    NT alubitnot(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
         NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
         NT r = !a;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    NT alubitand(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        NT r = a & b;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    NT alubitor(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        NT r = a | b;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    NT alubitxor(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        NT r = a ^ b;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    NT alubitshl(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        NT r = a << b;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    NT alubitshr(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        NT r = a >> b;
         //std::cout << a << " / " << b << " = " << r << "\n";
         return r;
     }
