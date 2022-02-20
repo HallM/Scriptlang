@@ -234,6 +234,10 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         _setv<bool>(constants, globals, ne<float>(constants, globals, oc) , oc.l3, oc.p3);
         break;
     }
+    case Bytecode::f32Negate: {
+        _setv<float>(constants, globals, aluneg<float>(constants, globals, oc) , oc.l2, oc.p2);
+        break;
+    }
 
     case Bytecode::s32Set: {
         _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
@@ -289,6 +293,14 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         _setv<bool>(constants, globals, ne<int>(constants, globals, oc) , oc.l3, oc.p3);
         break;
     }
+    case Bytecode::s32Negate: {
+        _setv<int>(constants, globals, aluneg<int>(constants, globals, oc) , oc.l2, oc.p2);
+        break;
+    }
+    case Bytecode::s32BitNot: {
+        _setv<int>(constants, globals, bitnot<int>(constants, globals, oc) , oc.l2, oc.p2);
+        break;
+    }
 
     case Bytecode::bAnd: {
         bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) && _getv<bool>(constants, globals, oc.l2, oc.p2);
@@ -306,6 +318,10 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
     }
     case Bytecode::bNotEqual: {
         _setv<bool>(constants, globals, ne<bool>(constants, globals, oc) , oc.l3, oc.p3);
+        break;
+    }
+    case Bytecode::bNot: {
+        _setv<bool>(constants, globals, bitnot<bool>(constants, globals, oc) , oc.l2, oc.p2);
         break;
     }
 

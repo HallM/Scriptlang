@@ -110,6 +110,24 @@ std::unordered_map<BinaryOps, operinfo> binary_opcode(std::string type) {
     return {};
 }
 
+std::unordered_map<UnaryOps, operinfo> unary_opcode(std::string type) {
+    if (type == type_s32) {
+        return {
+            {UnaryOps::Negate, {Bytecode::s32Negate, type_s32}},
+            {UnaryOps::BitNot, {Bytecode::s32BitNot, type_s32}},
+        };
+    } else if (type == type_f32) {
+        return {
+            {UnaryOps::Negate, {Bytecode::f32Negate, type_f32}},
+        };
+    } else if (type == type_bool) {
+        return {
+            {UnaryOps::Not, {Bytecode::bNot, type_bool}},
+        };
+    }
+    return {};
+}
+
 struct labellink {
     size_t labelid;
 };
@@ -398,6 +416,62 @@ compiled_result compile_vardecl(Node* n, compiler_wip& wip) {
     auto decl = std::get<VariableDeclaration>(n->data);
     return reserve_local(decl.name, decl.type, wip);
 }
+
+
+compiled_result compile_unaryop(Node* n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+    auto opnode = std::get<UnaryOperation>(n->data);
+    size_t stack = 0;
+    size_t stack_start = wip.next_stack;
+
+    size_t total_used = 0;
+
+    auto value_ret = compile_node(opnode.value, wip, {});
+    total_used = value_ret.stack_bytes_used;
+
+    auto optable = unary_opcode(value_ret.type);
+    auto maybeOp = optable.find(opnode.op);
+    if (maybeOp == optable.end()) {
+        throw "Unary Operator not supported by type";
+    }
+    auto op = maybeOp->second;
+    auto optype = maybeOp->second.type_returned;
+
+    BytecodeParam ret;
+    if (suggested_return) {
+        ret = suggested_return.value();
+    }
+    else if (value_ret.stack_bytes_returned >= wip.types.at(optype).size) {
+        // attempt to re-use any temporaries from the rhs
+        ret = std::get<BytecodeParam>(value_ret.address);
+        stack = value_ret.stack_bytes_returned;
+    }
+    else {
+        size_t addr = wip.next_stack;
+        size_t size = wip.types.at(optype).size;
+        wip.next_stack += size;
+        ret = StackAddressForward(LocMemoryDirect, addr);
+        stack = value_ret.stack_bytes_returned + size;
+        total_used += size;
+    }
+
+    wip.bytecodes.push_back(
+        Opcode(op.bc, std::get<BytecodeParam>(value_ret.address), ret)
+    );
+    // can free all unused stack for other ops now
+    wip.next_stack = stack_start + stack;
+
+    return {
+        optype,
+        false,
+        ret,
+        stack,
+        total_used
+    };
+}
+
+
+
+
 
 compiled_result compile_shared_binop(Node* lhs, Node* rhs, BinaryOps operation, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     // TODO: reduce temporary/stack usage
@@ -889,6 +963,9 @@ compiled_result compile_node(Node* n, compiler_wip& wip, std::optional<BytecodeP
     }
     else if (std::holds_alternative<ConstBool>(n->data)) {
         return compile_const_bool(n, wip);
+    }
+    else if (std::holds_alternative<UnaryOperation>(n->data)) {
+        return compile_unaryop(n, wip, suggested_return);
     }
     else if (std::holds_alternative<BinaryOperation>(n->data)) {
         return compile_binop(n, wip, suggested_return);

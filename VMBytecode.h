@@ -27,6 +27,8 @@ enum class Bytecode: size_t {
     s32GreaterEqual,
     s32Equal,
     s32NotEqual,
+    s32Negate, // [a] [out]
+    s32BitNot, // [a] [out]
 
     f32Add,
     f32Sub,
@@ -39,11 +41,13 @@ enum class Bytecode: size_t {
     f32GreaterEqual,
     f32Equal,
     f32NotEqual,
+    f32Negate, // [a] [out]
 
     bAnd,
     bOr,
     bEqual,
     bNotEqual,
+    bNot, // [a] [out]
 
     // sets the base plus handles reserving some stack space for a function
     // calls assume that base-P is each param. for example: int f(int a,int b)

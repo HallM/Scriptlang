@@ -158,6 +158,20 @@ private:
         //std::cout << a << " / " << b << " = " << r << "\n";
         return r;
     }
+    template<typename NT>
+    NT aluneg(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT r = -a;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    NT bitnot(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT r = !a;
+        //std::cout << a << " / " << b << " = " << r << "\n";
+        return r;
+    }
 
     template<typename NT>
     bool lt(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {

@@ -194,6 +194,7 @@ struct Node {
         ConstF32,
         ConstBool,
         BinaryOperation,
+        UnaryOperation,
         SetOperation,
         Identifier,
         AccessMember,
