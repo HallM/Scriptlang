@@ -2,7 +2,7 @@
 
 #include "VMStack.h"
 
-enum class Bytecode: unsigned int {
+enum class Bytecode: size_t {
     Break, // _ _ _
 
     DataAddress, // [a] [out] _
@@ -87,7 +87,7 @@ enum class Bytecode: unsigned int {
 };
 
 // we need 4 bits
-typedef unsigned int DataLoc;
+typedef size_t DataLoc;
 
 // exact addresses in params work like:
 // bit 17: is stack value (0 for const/global, 1 for stack/jumps). unused by jumps
@@ -137,13 +137,13 @@ size_t address_offset(size_t address);
 
 struct Opcode {
 public:
+    size_t p1:18;
+    size_t p2:18;
+    size_t p3:18;
     Bytecode op:7;
     DataLoc l1:1;
     DataLoc l2:1;
     DataLoc l3:1;
-    size_t p1:18;
-    size_t p2:18;
-    size_t p3:18;
 
     Opcode(
         Bytecode o, BytecodeParam param1, BytecodeParam param2, BytecodeParam param3

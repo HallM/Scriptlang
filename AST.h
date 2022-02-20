@@ -21,8 +21,12 @@ enum class PrimitiveType: unsigned int {
     s32,
     f32,
 };
+struct TupleTypeValue {
+    size_t offset;
+    std::string type;
+};
 struct TupleType {
-    std::vector<std::string> types;
+    std::vector<TupleTypeValue> values;
 };
 
 struct EnumTypeNamedValue {
@@ -39,7 +43,7 @@ struct StructTypeMember {
     std::string type;
 };
 struct StructType {
-    std::vector<StructTypeMember> members;
+    std::unordered_map<std::string, StructTypeMember> members;
 };
 
 struct MethodTypeParameter {
@@ -54,7 +58,7 @@ struct TypeInfo {
     std::string name;
     size_t size;
     std::variant<PrimitiveType, StructType, TupleType, EnumType, MethodType> type;
-    std::vector<MethodType> methods;
+    std::unordered_map<std::string, std::string> methods;
 };
 
 struct Node;
@@ -105,7 +109,6 @@ struct BinaryOperation {
     Node* rhs;
 };
 
-
 enum class UnaryOps {
     // int/float types
     Negate,
@@ -131,6 +134,11 @@ struct SetOperation {
 
 struct Identifier {
     std::string name;
+};
+
+struct AccessMember {
+    Node* container;
+    Node* member;
 };
 
 struct VariableDeclaration {
@@ -188,6 +196,7 @@ struct Node {
         BinaryOperation,
         SetOperation,
         Identifier,
+        AccessMember,
         VariableDeclaration,
         GlobalBlock,
         Block,

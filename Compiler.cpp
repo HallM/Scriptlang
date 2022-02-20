@@ -277,22 +277,13 @@ compiled_result compile_identifier(Node* n, compiler_wip& wip) {
 
     auto maybe_method = wip.method_indices.find(ident);
     if (maybe_method != wip.method_indices.end()) {
-        //if (!maybe_method->second.defined) {
-            return {
-                wip.methods.at(maybe_method->second).type,
-                false,
-                methodlink{ident},
-                0,
-                0
-            };
-        //}
-        //return {
-        //    maybe_method->second.type,
-        //    false,
-        //    ScriptCall(LocMemoryDirect, maybe_method->second.address),
-        //    0,
-        //    0
-        //};
+        return {
+            wip.methods.at(maybe_method->second).type,
+            false,
+            methodlink{ident},
+            0,
+            0
+        };
     }
 
     //auto maybe_imported = wip.imported_methods.find(ident);
@@ -307,6 +298,78 @@ compiled_result compile_identifier(Node* n, compiler_wip& wip) {
     //}
 
     throw "Identifier not found";
+}
+
+
+compiled_result compile_access(Node* n, compiler_wip& wip) {
+    AccessMember access = std::get<AccessMember>(n->data);
+
+    auto lhs = compile_node(access.container, wip, {});
+    auto lhstype = wip.types.at(lhs.type);
+    auto address = std::get<BytecodeParam>(lhs.address);
+
+    // First we check if there is a data member to access before functions.
+    // Tuples use consts32 (ex mytup.0) for accesses.
+    if (std::holds_alternative<TupleType>(lhstype.type)) {
+        auto tupleinfo = std::get<TupleType>(lhstype.type);
+        if (std::holds_alternative<ConstS32>(access.member->data)) {
+            int index = std::get<ConstS32>(access.member->data).num;
+            int total = (int)tupleinfo.values.size();
+            if (index < 0) {
+                index = total + index;
+                if (index < 0) {
+                    throw "Tuple access out of range";
+                }
+            }
+            else if (index >= total) {
+                throw "Tuple access out of range";
+            }
+            auto value = tupleinfo.values.at(index);
+            address.offset += value.offset;
+
+            return {
+                value.type,
+                true,
+                address,
+                lhs.stack_bytes_returned,
+                lhs.stack_bytes_used
+            };
+        }
+    }
+    else if (std::holds_alternative<StructType>(lhstype.type)) {
+        auto structinfo = std::get<StructType>(lhstype.type);
+        if (std::holds_alternative<Identifier>(access.member->data)) {
+            std::string name = std::get<Identifier>(access.member->data).name;
+            auto value = structinfo.members.at(name);
+            address.offset += value.offset;
+
+            return {
+                value.type,
+                true,
+                address,
+                lhs.stack_bytes_returned,
+                lhs.stack_bytes_used
+            };
+        }
+    }
+
+    // at this point, check for methods
+    if (std::holds_alternative<Identifier>(access.member->data)) {
+        std::string name = std::get<Identifier>(access.member->data).name;
+        auto maybe = lhstype.methods.find(name);
+        if (maybe != lhstype.methods.end()) {
+            std::string method_type = maybe->second;
+            return {
+                method_type,
+                false,
+                methodlink{name},
+                lhs.stack_bytes_returned,
+                lhs.stack_bytes_used
+            };
+        }
+    }
+
+    throw "Unknown member to access";
 }
 
 compiled_result reserve_local(std::string name, std::string type_name, compiler_wip& wip) {
@@ -835,6 +898,9 @@ compiled_result compile_node(Node* n, compiler_wip& wip, std::optional<BytecodeP
     }
     else if (std::holds_alternative<Identifier>(n->data)) {
         return compile_identifier(n, wip);
+    }
+    else if (std::holds_alternative<AccessMember>(n->data)) {
+        return compile_access(n, wip);
     }
     else if (std::holds_alternative<VariableDeclaration>(n->data)) {
         return compile_vardecl(n, wip);
