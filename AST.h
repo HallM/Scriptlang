@@ -56,6 +56,8 @@ struct MethodType {
 
 struct TypeInfo {
     std::string name;
+    // if this type is a reference type, this will be set to the type it refers to.
+    std::optional<std::string> ref_type;
     size_t size;
     std::variant<PrimitiveType, StructType, TupleType, EnumType, MethodType> type;
     std::unordered_map<std::string, std::string> methods;

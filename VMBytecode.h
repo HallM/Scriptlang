@@ -7,6 +7,7 @@ enum class Bytecode: size_t {
 
     DataAddress, // [a] [out] _
     FunctionAddress, // [a] [out] _
+    Dereference, // [a] [size] [out]
 
     s32Set, // [a] [out] _
     f32Set,
@@ -122,6 +123,7 @@ struct BytecodeParam {
     size_t offset;
 public:
     bool operator==(const BytecodeParam& r) const;
+    bool operator!=(const BytecodeParam& r) const;
 };
 
 BytecodeParam ConstantAddress(DataLoc loc, size_t offset);
@@ -197,4 +199,8 @@ public:
       p1(0),
       p2(0),
       p3(0) {}
+
+    void set_parameter1(BytecodeParam param);
+    void set_parameter2(BytecodeParam param);
+    void set_parameter3(BytecodeParam param);
 };

@@ -5,6 +5,11 @@ BytecodeParam::operator==(const BytecodeParam& r) const {
     return (this->loc == r.loc) && (this->page == r.page) && (this->offset == r.offset);
 }
 
+bool
+BytecodeParam::operator!=(const BytecodeParam& r) const {
+    return (this->loc != r.loc) || (this->page != r.page) || (this->offset != r.offset);
+}
+
 BytecodeParam
 ConstantAddress(DataLoc loc, size_t offset) {
     return {loc, 0, offset};
@@ -78,4 +83,22 @@ address_page(size_t address) {
 size_t
 address_offset(size_t address) {
     return address & ParamAddressOffsetMask;
+}
+
+void
+Opcode::set_parameter1(BytecodeParam param) {
+    l1 = param.loc;
+    p1 = merge_page_offset(param);
+}
+
+void
+Opcode::set_parameter2(BytecodeParam param) {
+    l2 = param.loc;
+    p2 = merge_page_offset(param);
+}
+
+void
+Opcode::set_parameter3(BytecodeParam param) {
+    l3 = param.loc;
+    p3 = merge_page_offset(param);
 }

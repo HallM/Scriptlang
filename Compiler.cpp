@@ -17,12 +17,11 @@
 
 //
 // default, included types
-// if/elseif statements and comparisons
-// loops (do-while)
-// switch back to backwards params/rets? maybe?
 // check locals created
+// references
+// dereferences
+// dereference+access
 // change Program interface
-// objects
 // iterables
 // for-each loops
 // lists?
@@ -32,13 +31,6 @@
 // global set values
 //
 // optimize jumps, short circuits, etc
-// 
-// optimize stack usage in compiled code
-//   1. if cant re-use rhs, then try to reuse lhs
-//   2. should we pass a "return hint" ?
-//
-// combine ops where possible
-//   1. ADD x, y -> z; SET z -> q should be ADD x, y -> q
 //
 
 // TODO: get rid of these or move them to somewhere central
@@ -208,6 +200,27 @@ struct compiler_wip {
     compiler_wip(const TypeTable& t, const ImportedTable& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {}
 };
 
+bool compatible_types(const TypeInfo& a, const TypeInfo& b) {
+    if (a.name == b.name) {
+        return true;
+    }
+    if (a.ref_type && a.ref_type.value() == b.name) {
+        return true;
+    }
+    if (b.ref_type && b.ref_type.value() == a.name) {
+        return true;
+    }
+    return false;
+}
+
+const TypeInfo& get_type(std::string type_name, compiler_wip& wip) {
+    return wip.types.at(type_name);
+}
+
+bool compatible_types_by_name(std::string a, std::string b, compiler_wip& wip) {
+    return compatible_types(get_type(a, wip), get_type(b, wip));
+}
+
 template<typename T>
 size_t constant(T v, compiler_wip& wip) {
     std::ostringstream iss;
@@ -276,15 +289,20 @@ compiled_result compile_identifier(Node* n, compiler_wip& wip) {
         auto lv = wip.local_variables[i];
         auto it = lv.find(ident);
         if (it != lv.end()) {
+            auto type = wip.types.at(it->second.type);
+            DataLoc ptr = LocMemoryDirect;
+            if (type.ref_type) {
+                ptr = LocMemoryIndirect;
+            }
             BytecodeParam ret;
             if (i == 0) {
-                ret = GlobalAddress(LocMemoryDirect, it->second.address);
+                ret = GlobalAddress(ptr, it->second.address);
             }
             else {
-                ret = StackAddressForward(LocMemoryDirect, it->second.address);
+                ret = StackAddressForward(ptr, it->second.address);
             }
             return {
-                it->second.type,
+                type.name,
                 true,
                 ret,
                 0,
@@ -295,6 +313,7 @@ compiled_result compile_identifier(Node* n, compiler_wip& wip) {
 
     auto maybe_method = wip.method_indices.find(ident);
     if (maybe_method != wip.method_indices.end()) {
+        // Note that method references would be handled above.
         return {
             wip.methods.at(maybe_method->second).type,
             false,
@@ -492,7 +511,7 @@ compiled_result compile_shared_binop(Node* lhs, Node* rhs, BinaryOps operation, 
         total_used = lhs_ret.stack_bytes_used + rhs_ret.stack_bytes_returned;
     }
 
-    if (lhs_ret.type != rhs_ret.type) {
+    if (!compatible_types_by_name(lhs_ret.type, rhs_ret.type, wip)) {
         throw "Incompatible types";
     }
 
@@ -573,7 +592,7 @@ compiled_result compile_setop(Node* n, compiler_wip& wip) {
 
     auto optype = assign_value.type;
 
-    if (assign_to.type != optype) {
+    if (!compatible_types_by_name(assign_to.type, optype, wip)) {
         throw "Cannot set lhs to rhs as the types do not match";
     }
     if (total_used < assign_to.stack_bytes_used + assign_value.stack_bytes_returned) {
@@ -864,12 +883,26 @@ compiled_result compile_methodparam(Node* n, MethodTypeParameter type, compiler_
 
     // TODO: suggesting positions would REALLY help here
     auto value = compile_node(param.value, wip, {});
-    if (value.type != type.type) {
+
+    const auto& value_type = get_type(value.type, wip);
+    const auto& param_type = get_type(type.type, wip);
+
+    if (!compatible_types(value_type, param_type)) {
         throw "Parameter is the incorrect type";
     }
 
     size_t total_used = value.stack_bytes_used;
-    if (merge_page_offset(std::get<BytecodeParam>(value.address)) != merge_page_offset(store_address)) {
+    if (param_type.ref_type && !value_type.ref_type) {
+        wip.bytecodes.push_back(
+            Opcode(Bytecode::DataAddress, std::get<BytecodeParam>(value.address), store_address)
+        );
+    }
+    else if (!param_type.ref_type && value_type.ref_type) {
+        wip.bytecodes.push_back(
+            Opcode(Bytecode::Dereference, std::get<BytecodeParam>(value.address), store_address)
+        );
+    }
+    else if (std::get<BytecodeParam>(value.address) != store_address) {
         auto opinfo = assignment_opcode(value.type);
         wip.bytecodes.push_back(
             Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), store_address)
@@ -1045,11 +1078,9 @@ link(compiler_wip& wip) {
             linked = ScriptCall(LocMemoryDirect, method_index);
         }
 
-        bc.l1 = linked.loc;
-        bc.p1 = merge_page_offset(linked);
+        bc.set_parameter1(linked);
         // We don't touch the base (p2)
-        bc.l3 = LocMemoryDirect;
-        bc.p3 = wip.methods[method_index].stack_bytes;
+        bc.set_parameter3(StackSize(LocMemoryDirect, wip.methods[method_index].stack_bytes));
     }
 
     for (auto& ll : wip.labellinks) {
@@ -1059,16 +1090,13 @@ link(compiler_wip& wip) {
         BytecodeParam linked = JumpExact(LocMemoryDirect, link_address);
         switch (ll.param) {
         case 0:
-            bc.l1 = linked.loc;
-            bc.p1 = merge_page_offset(linked);
+            bc.set_parameter1(linked);
             break;
         case 1:
-            bc.l2 = linked.loc;
-            bc.p2 = merge_page_offset(linked);
+            bc.set_parameter2(linked);
             break;
         case 2:
-            bc.l3 = linked.loc;
-            bc.p3 = merge_page_offset(linked);
+            bc.set_parameter3(linked);
             break;
         }
     }

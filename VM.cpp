@@ -163,7 +163,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::DataAddress: {
-        size_t address = size_t(_table_ptr<int*>(globals, oc.p1));
+        size_t address = size_t(_table_ptr<int>(globals, oc.p1));
         _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
         break;
     }
@@ -178,6 +178,13 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
             size_t address = size_t(program.get_builtin_runnable(offset));
             _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
         }
+        break;
+    }
+    case Bytecode::Dereference: {
+        size_t size = _getv<size_t>(constants, globals, oc.l2, oc.p2);
+        char* src = _getv<char*>(constants, globals, oc.l1, oc.p1);
+        char *dest = _table_ptr<char>(globals, oc.p3);
+        memcpy(dest, src, size);
         break;
     }
     case Bytecode::f32Set: {

@@ -177,12 +177,12 @@ void compile_demo() {
         } } };
 
     TypeTable types;
-    types["void"] = TypeInfo{"void", 0, PrimitiveType::empty};
-    types["bool"] = TypeInfo{"bool", runtimesizeof<bool>(), PrimitiveType::boolean};
-    types["s32"] = TypeInfo{"s32", runtimesizeof<int>(), PrimitiveType::s32};
-    types["f32"] = TypeInfo{"f32", runtimesizeof<float>(), PrimitiveType::f32};
+    types["void"] = TypeInfo{"void", {}, 0, PrimitiveType::empty};
+    types["bool"] = TypeInfo{"bool", {}, runtimesizeof<bool>(), PrimitiveType::boolean};
+    types["s32"] = TypeInfo{"s32", {}, runtimesizeof<int>(), PrimitiveType::s32};
+    types["f32"] = TypeInfo{"f32", {}, runtimesizeof<float>(), PrimitiveType::f32};
     types["f32(f32,f32)"] = TypeInfo{
-        "f32(f32,f32)",
+        "f32(f32,f32)", {},
         0,
         MethodType{
             "f32",
@@ -193,7 +193,7 @@ void compile_demo() {
         }
     };
     types["void()"] = TypeInfo{
-        "void()",
+        "void()", {},
         0,
         MethodType{
             "void",
@@ -201,7 +201,7 @@ void compile_demo() {
         }
     };
     types["void(s32)"] = TypeInfo{
-        "void(s32)",
+        "void(s32)", {},
         0,
         MethodType{
             "void",
