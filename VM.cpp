@@ -187,18 +187,39 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         memcpy(dest, src, size);
         break;
     }
+    case Bytecode::refSet: {
+        // Always fetch the ptr as direct to get the ptr itself.
+        size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
+        _setv<size_t>(constants, globals, v, LocMemoryDirect, oc.p2);
+        break;
+    }
+    case Bytecode::refAdd: {
+        size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
+        size_t offset = _getv<size_t>(constants, globals, oc.l2, oc.p2);
+        _setv<size_t>(constants, globals, v + offset, LocMemoryDirect, oc.p3);
+        break;
+    }
+    
     case Bytecode::f32Set: {
         _setv<float>(constants, globals, _getv<float>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
         break;
     }
     case Bytecode::f32SetFromIndexed: {
-        size_t index = _getv<int>(constants, globals, oc.l2, oc.p2);
-        _setv<float>(constants, globals, _getv<float>(constants, globals, oc.l1, oc.p1 + (4 * index)), oc.l3, oc.p3);
+        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+        char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
+        p += offset;
+        float v = *((float*)p);
+        _setv<float>(constants, globals, v, oc.l3, oc.p3);
         break;
     }
     case Bytecode::f32SetIntoIndexed: {
-        size_t index = _getv<int>(constants, globals, oc.l2, oc.p2);
-        _setv<float>(constants, globals, _getv<float>(constants, globals, oc.l1, oc.p1), oc.l3, oc.p3 + (4 * index));
+        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+        float v = _getv<float>(constants, globals, oc.l1, oc.p1);
+
+        char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
+        p += offset;
+        float* ptr = (float*)p;
+        *ptr = v;
         break;
     }
     case Bytecode::f32Add: {
@@ -251,13 +272,21 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         break;
     }
     case Bytecode::s32SetFromIndexed: {
-        size_t index = _getv<int>(constants, globals, oc.l2, oc.p2);
-        _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1 + (4 * index)), oc.l3, oc.p3);
+        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+        char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
+        p += offset;
+        int v = *((int*)p);
+        _setv<int>(constants, globals, v, oc.l3, oc.p3);
         break;
     }
     case Bytecode::s32SetIntoIndexed: {
-        size_t index = _getv<int>(constants, globals, oc.l2, oc.p2);
-        _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1), oc.l3, oc.p3 + (4 * index));
+        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+        int v = _getv<int>(constants, globals, oc.l1, oc.p1);
+
+        char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
+        p += offset;
+        int* ptr = (int*)p;
+        *ptr = v;
         break;
     }
     case Bytecode::s32Add: {

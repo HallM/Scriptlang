@@ -10,6 +10,11 @@ Program::~Program() {
     }
 }
 
+void
+Program::register_method(std::string name, std::vector<std::type_index> types) {
+    _function_ret_params[name] = types;
+}
+
 std::shared_ptr<VMFixedStack>
 Program::generate_state() {
     auto size = globals_size();

@@ -24,6 +24,7 @@ public:
     template <typename T>
     size_t push_parameters(T v) {
         size_t addr = data.size();
+        //std::cout << "pushing " << typeid(T).name() << " " << (size_t)v << " to " << addr << "\n";
         data.reserve(runtimesizeof<T>());
         *data.at<T>(addr) = v;
         return addr;
@@ -111,19 +112,35 @@ private:
         }
     }
     template<typename T>
-    void _setv(const VMFixedStack& constants, VMFixedStack& globals, T v, DataLoc l, size_t address) {
+    T* _getptr(const VMFixedStack& constants, VMFixedStack& globals, DataLoc l, size_t address) {
         switch (l) {
             case LocMemoryIndirect: {
-                T* ptr = _table_value<T*>(constants, globals, address);
-                *ptr = v;
-                break;
+                //std::cout << "get an indirect ptr " << address << "\n";
+                return _table_value<T*>(constants, globals, address);
             }
             default: {
-                *_table_ptr<T>(globals, address) = v;
-                //std::cout << "set something to " << v << "\n";
-                break;
+                //std::cout << "get a direct ptr " << address << "\n";
+                return _table_ptr<T>(globals, address);
             }
         }
+    }
+    template<typename T>
+    void _setv(const VMFixedStack& constants, VMFixedStack& globals, T v, DataLoc l, size_t address) {
+        T* ptr = _getptr<T>(constants, globals, l, address);
+        //std::cout << "set " << size_t(ptr) << " to " << v << "\n";
+        *ptr = v;
+        //switch (l) {
+        //    case LocMemoryIndirect: {
+        //        T* ptr = _table_value<T*>(constants, globals, address);
+        //        *ptr = v;
+        //        break;
+        //    }
+        //    default: {
+        //        *_table_ptr<T>(globals, address) = v;
+        //        //std::cout << "set something to " << v << "\n";
+        //        break;
+        //    }
+        //}
     }
 
     template<typename NT>

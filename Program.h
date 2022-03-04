@@ -80,17 +80,9 @@ public:
         return Callable<Ret, Args...>(*this, address, stack_size);
     }
 
-    void register_method(std::string name, std::vector<std::type_index> types) {
-        _function_ret_params[name] = types;
-    }
-    template <typename Ret, typename... Args>
-    void late_register_method(std::string name) {
-        std::vector<std::type_index> rp = {
-            typeid(Ret),
-            typeid(Args)...
-        };
-        register_method(name, rp);
-    }
+    // Register a method that is possible to be called by C++.
+    void register_method(std::string name, std::vector<std::type_index> types);
+
     // Generates a fixed stack containing all globals.
     std::shared_ptr<VMFixedStack> generate_state();
 

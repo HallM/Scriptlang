@@ -144,8 +144,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Program.cpp" />
     <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="Tokenizer.cpp" />
+    <ClCompile Include="Types.cpp" />
     <ClCompile Include="VM.cpp" />
     <ClCompile Include="VMBytecode.cpp" />
     <ClCompile Include="VMFFI.cpp" />
@@ -154,7 +157,12 @@
   <ItemGroup>
     <ClInclude Include="AST.h" />
     <ClInclude Include="Compiler.h" />
+    <ClInclude Include="Parser.h" />
     <ClInclude Include="Program.h" />
+    <ClInclude Include="Tokenizer.h" />
+    <ClInclude Include="Tokens.h" />
+    <ClInclude Include="Types.h" />
+    <ClInclude Include="VectorView.h" />
     <ClInclude Include="VM.h" />
     <ClInclude Include="VMBytecode.h" />
     <ClInclude Include="VMFFI.h" />

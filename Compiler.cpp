@@ -12,6 +12,7 @@
 
 #include "AST.h"
 #include "Program.h"
+#include "Types.h"
 #include "VMBytecode.h"
 #include "VMFFI.h"
 
@@ -43,19 +44,6 @@ struct operinfo {
     Bytecode bc;
     std::string type_returned;
 };
-
-operinfo assignment_opcode(std::string type) {
-    if (type == type_s32) {
-        return {Bytecode::s32Set, type_bool};
-    }
-    else if (type == type_f32) {
-        return {Bytecode::f32Set, type_bool};
-    }
-    else if (type == type_bool) {
-        return {Bytecode::s32Set, type_bool};
-    }
-    return {};
-}
 
 std::unordered_map<BinaryOps, operinfo> binary_opcode(std::string type) {
     if (type == type_s32) {
@@ -173,7 +161,8 @@ struct methodinfo {
 // holds all the necessary tables as we move through the compilation step
 struct compiler_wip {
     const TypeTable& types;
-    const ImportedTable& imported_methods;
+    const ImportedMethods& imported_methods;
+    std::unordered_map<std::string, size_t> imported_method_names;
 
     std::vector<Opcode> bytecodes;
     std::vector<labellinkable> labellinks;
@@ -188,7 +177,8 @@ struct compiler_wip {
 
     std::vector<std::variant<
         float,
-        int
+        int,
+        size_t
     >> constant_values;
     std::unordered_map<std::string, size_t> constant_addresses;
     size_t next_const;
@@ -197,7 +187,13 @@ struct compiler_wip {
     std::unordered_map<std::string, size_t> method_indices;
 
     public:
-    compiler_wip(const TypeTable& t, const ImportedTable& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {}
+    compiler_wip(const TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {
+        for (size_t i = 0; i < m.size(); i++) {
+            ImportedMethod method = m[i];
+            std::cout << method.name << " imported\n";
+            imported_method_names[method.name] = i;
+        }
+    }
 };
 
 bool compatible_types(const TypeInfo& a, const TypeInfo& b) {
@@ -214,11 +210,32 @@ bool compatible_types(const TypeInfo& a, const TypeInfo& b) {
 }
 
 const TypeInfo& get_type(std::string type_name, compiler_wip& wip) {
-    return wip.types.at(type_name);
+    return wip.types.get_type(type_name);
 }
 
 bool compatible_types_by_name(std::string a, std::string b, compiler_wip& wip) {
     return compatible_types(get_type(a, wip), get_type(b, wip));
+}
+
+operinfo assignment_opcode(std::string type_name, compiler_wip& wip) {
+    auto type = get_type(type_name, wip);
+    if (type.ref_type) {
+        return {Bytecode::refSet, type_bool};
+    }
+    if (std::holds_alternative<PrimitiveType>(type.type)) {
+        auto prim = std::get<PrimitiveType>(type.type);
+        if (prim == PrimitiveType::s32) {
+            return {Bytecode::s32Set, type_bool};
+        }
+        else if (prim == PrimitiveType::f32) {
+            return {Bytecode::f32Set, type_bool};
+        }
+        else if (prim == PrimitiveType::boolean) {
+            return {Bytecode::s32Set, type_bool};
+        }
+    }
+
+    throw "unknown assignment";
 }
 
 template<typename T>
@@ -244,9 +261,9 @@ get_method_named(std::string name, compiler_wip& wip) {
     return wip.methods[index];
 }
 
-compiled_result compile_node(Node* n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return);
+compiled_result compile_node(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return);
 
-compiled_result compile_const_s32(Node* n, compiler_wip& wip) {
+compiled_result compile_const_s32(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto s32node = std::get<ConstS32>(n->data);
     size_t address = constant<int>(s32node.num, wip);
     return {
@@ -258,7 +275,7 @@ compiled_result compile_const_s32(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_const_f32(Node* n, compiler_wip& wip) {
+compiled_result compile_const_f32(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto f32node = std::get<ConstF32>(n->data);
     size_t address = constant<float>(f32node.num, wip);
     return {
@@ -270,7 +287,7 @@ compiled_result compile_const_f32(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_const_bool(Node* n, compiler_wip& wip) {
+compiled_result compile_const_bool(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto bnode = std::get<ConstBool>(n->data);
     size_t address = constant<bool>(bnode.value, wip);
     return {
@@ -282,14 +299,14 @@ compiled_result compile_const_bool(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_identifier(Node* n, compiler_wip& wip) {
+compiled_result compile_identifier(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto ident = std::get<Identifier>(n->data).name;
 
     for (size_t i = wip.local_variables.size(); i--;) {
         auto lv = wip.local_variables[i];
         auto it = lv.find(ident);
         if (it != lv.end()) {
-            auto type = wip.types.at(it->second.type);
+            auto type = wip.types.get_type(it->second.type);
             DataLoc ptr = LocMemoryDirect;
             if (type.ref_type) {
                 ptr = LocMemoryIndirect;
@@ -323,86 +340,90 @@ compiled_result compile_identifier(Node* n, compiler_wip& wip) {
         };
     }
 
-    //auto maybe_imported = wip.imported_methods.find(ident);
-    //if (maybe_imported != wip.imported_methods.end()) {
-    //    return {
-    //        maybe_imported->second.type,
-    //        true,
-    //        ExternalCall(LocMemoryDirect, maybe_imported->second.address),
-    //        0,
-    //        0
-    //    };
-    //}
+    auto maybe_imported = wip.imported_method_names.find(ident);
+    if (maybe_imported != wip.imported_method_names.end()) {
+        auto method = wip.imported_methods[maybe_imported->second];
+        return {
+            method.type,
+            true,
+            ExternalCall(LocMemoryDirect, maybe_imported->second),
+            0,
+            0
+        };
+    }
 
+    std::cout << ident << " not found\n";
     throw "Identifier not found";
 }
 
-
-compiled_result compile_access(Node* n, compiler_wip& wip) {
+compiled_result compile_access(std::shared_ptr<Node> n, compiler_wip& wip) {
     AccessMember access = std::get<AccessMember>(n->data);
 
     auto lhs = compile_node(access.container, wip, {});
-    auto lhstype = wip.types.at(lhs.type);
+    auto lhstype = wip.types.get_type(lhs.type);
     auto address = std::get<BytecodeParam>(lhs.address);
 
-    // First we check if there is a data member to access before functions.
     // Tuples use consts32 (ex mytup.0) for accesses.
-    if (std::holds_alternative<TupleType>(lhstype.type)) {
-        auto tupleinfo = std::get<TupleType>(lhstype.type);
-        if (std::holds_alternative<ConstS32>(access.member->data)) {
-            int index = std::get<ConstS32>(access.member->data).num;
-            int total = (int)tupleinfo.values.size();
-            if (index < 0) {
-                index = total + index;
-                if (index < 0) {
-                    throw "Tuple access out of range";
-                }
-            }
-            else if (index >= total) {
-                throw "Tuple access out of range";
-            }
-            auto value = tupleinfo.values.at(index);
-            address.offset += value.offset;
+    //if (std::holds_alternative<TupleType>(lhstype.type)) {
+    //    auto tupleinfo = std::get<TupleType>(lhstype.type);
+    //    if (std::holds_alternative<ConstS32>(access.member->data)) {
+    //        int index = std::get<ConstS32>(access.member->data).num;
+    //        int total = (int)tupleinfo.values.size();
+    //        if (index < 0) {
+    //            index = total + index;
+    //            if (index < 0) {
+    //                throw "Tuple access out of range";
+    //            }
+    //        }
+    //        else if (index >= total) {
+    //            throw "Tuple access out of range";
+    //        }
+    //        auto value = tupleinfo.values.at(index);
+    //        address.offset += value.offset;
 
-            return {
-                value.type,
-                true,
-                address,
-                lhs.stack_bytes_returned,
-                lhs.stack_bytes_used
-            };
-        }
-    }
-    else if (std::holds_alternative<StructType>(lhstype.type)) {
+    //        return {
+    //            value.type,
+    //            true,
+    //            address,
+    //            lhs.stack_bytes_returned,
+    //            lhs.stack_bytes_used
+    //        };
+    //    }
+    //}
+    if (std::holds_alternative<StructType>(lhstype.type)) {
         auto structinfo = std::get<StructType>(lhstype.type);
         if (std::holds_alternative<Identifier>(access.member->data)) {
             std::string name = std::get<Identifier>(access.member->data).name;
             auto value = structinfo.members.at(name);
-            address.offset += value.offset;
+            auto value_type = get_type(value.type, wip);
 
-            return {
-                value.type,
-                true,
-                address,
-                lhs.stack_bytes_returned,
-                lhs.stack_bytes_used
-            };
-        }
-    }
+            if (lhstype.ref_type) {
+                // TODO: could we save stack by re-using space here?
+                // we create a new ptr to the value by doing a sizet add.
+                size_t temp = wip.next_stack;
+                wip.next_stack += sizeof(size_t);
+                auto offsetaddr = ConstantAddress(LocMemoryDirect, constant<size_t>(value.offset, wip));
+                auto tempaddr = StackAddressForward(LocMemoryIndirect, temp);
+                wip.bytecodes.push_back(Opcode(Bytecode::refAdd, address, offsetaddr, tempaddr));
+                return {
+                    value.type,
+                    true,
+                    tempaddr,
+                    sizeof(size_t),
+                    lhs.stack_bytes_used + value_type.size
+                };
+            }
+            else {
+                address.offset += value.offset;
 
-    // at this point, check for methods
-    if (std::holds_alternative<Identifier>(access.member->data)) {
-        std::string name = std::get<Identifier>(access.member->data).name;
-        auto maybe = lhstype.methods.find(name);
-        if (maybe != lhstype.methods.end()) {
-            std::string method_type = maybe->second;
-            return {
-                method_type,
-                false,
-                methodlink{name},
-                lhs.stack_bytes_returned,
-                lhs.stack_bytes_used
-            };
+                return {
+                    value.type,
+                    true,
+                    address,
+                    lhs.stack_bytes_returned,
+                    lhs.stack_bytes_used
+                };
+            }
         }
     }
 
@@ -415,7 +436,7 @@ compiled_result reserve_local(std::string name, std::string type_name, compiler_
         // TODO: shadow probably would work fine without
         throw "Ident already declared";
     }
-    auto type = wip.types.at(type_name);
+    auto type = wip.types.get_type(type_name);
     auto address = wip.next_stack;
     auto size = type.size;
     wip.next_stack += size;
@@ -431,13 +452,13 @@ compiled_result reserve_local(std::string name, std::string type_name, compiler_
     };
 }
 
-compiled_result compile_vardecl(Node* n, compiler_wip& wip) {
+compiled_result compile_vardecl(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto decl = std::get<VariableDeclaration>(n->data);
     return reserve_local(decl.name, decl.type, wip);
 }
 
 
-compiled_result compile_unaryop(Node* n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+compiled_result compile_unaryop(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     auto opnode = std::get<UnaryOperation>(n->data);
     size_t stack = 0;
     size_t stack_start = wip.next_stack;
@@ -459,14 +480,14 @@ compiled_result compile_unaryop(Node* n, compiler_wip& wip, std::optional<Byteco
     if (suggested_return) {
         ret = suggested_return.value();
     }
-    else if (value_ret.stack_bytes_returned >= wip.types.at(optype).size) {
+    else if (value_ret.stack_bytes_returned >= wip.types.get_type(optype).size) {
         // attempt to re-use any temporaries from the rhs
         ret = std::get<BytecodeParam>(value_ret.address);
         stack = value_ret.stack_bytes_returned;
     }
     else {
         size_t addr = wip.next_stack;
-        size_t size = wip.types.at(optype).size;
+        size_t size = wip.types.get_type(optype).size;
         wip.next_stack += size;
         ret = StackAddressForward(LocMemoryDirect, addr);
         stack = value_ret.stack_bytes_returned + size;
@@ -492,7 +513,7 @@ compiled_result compile_unaryop(Node* n, compiler_wip& wip, std::optional<Byteco
 
 
 
-compiled_result compile_shared_binop(Node* lhs, Node* rhs, BinaryOps operation, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+compiled_result compile_shared_binop(std::shared_ptr<Node> lhs, std::shared_ptr<Node> rhs, BinaryOps operation, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     // TODO: reduce temporary/stack usage
     // I think I should pass down a "please store here"
     size_t stack = 0;
@@ -530,12 +551,12 @@ compiled_result compile_shared_binop(Node* lhs, Node* rhs, BinaryOps operation, 
     if (suggested_return) {
         ret = suggested_return.value();
     }
-    else if (rhs_ret.stack_bytes_returned >= wip.types.at(optype).size) {
+    else if (rhs_ret.stack_bytes_returned >= wip.types.get_type(optype).size) {
         // attempt to re-use any temporaries from the rhs
         ret = std::get<BytecodeParam>(rhs_ret.address);
         stack = rhs_ret.stack_bytes_returned;
     }
-    else if (lhs_ret.stack_bytes_returned >= wip.types.at(optype).size) {
+    else if (lhs_ret.stack_bytes_returned >= wip.types.get_type(optype).size) {
         ret = std::get<BytecodeParam>(lhs_ret.address);
         stack = lhs_ret.stack_bytes_returned;
     }
@@ -543,7 +564,7 @@ compiled_result compile_shared_binop(Node* lhs, Node* rhs, BinaryOps operation, 
         // TODO: how to reduce...
         // need to create and return a new temporary to hold the returned value of the binop
         size_t addr = wip.next_stack;
-        size_t size = wip.types.at(optype).size;
+        size_t size = wip.types.get_type(optype).size;
         wip.next_stack += size;
         ret = StackAddressForward(LocMemoryDirect, addr);
         stack = rhs_ret.stack_bytes_returned + size;
@@ -565,12 +586,12 @@ compiled_result compile_shared_binop(Node* lhs, Node* rhs, BinaryOps operation, 
     };
 }
 
-compiled_result compile_binop(Node* n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+compiled_result compile_binop(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     auto opnode = std::get<BinaryOperation>(n->data);
     return compile_shared_binop(opnode.lhs, opnode.rhs, opnode.op, wip, suggested_return);
 }
 
-compiled_result compile_setop(Node* n, compiler_wip& wip) {
+compiled_result compile_setop(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto opnode = std::get<SetOperation>(n->data);
     compiled_result assign_value;
     size_t stack_begin = wip.next_stack;
@@ -600,7 +621,7 @@ compiled_result compile_setop(Node* n, compiler_wip& wip) {
     }
 
     if (from_address != assign_address) {
-        auto opinfo = assignment_opcode(optype);
+        auto opinfo = assignment_opcode(optype, wip);
         wip.bytecodes.push_back(
             Opcode(opinfo.bc, from_address, assign_address)
         );
@@ -617,7 +638,7 @@ compiled_result compile_setop(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_nodelist(std::vector<Node*> nodes, compiler_wip& wip) {
+compiled_result compile_nodelist(std::vector<std::shared_ptr<Node>> nodes, compiler_wip& wip) {
     // TODO: support block-expressions
     size_t last_stack = wip.next_stack;
     size_t total_used = 0;
@@ -639,7 +660,7 @@ compiled_result compile_nodelist(std::vector<Node*> nodes, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_block(Node* n, compiler_wip& wip) {
+compiled_result compile_block(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto block = std::get<Block>(n->data);
 
     wip.local_variables.push_back({});
@@ -649,7 +670,7 @@ compiled_result compile_block(Node* n, compiler_wip& wip) {
     return ret;
 }
 
-compiled_result compile_if(Node* n, compiler_wip& wip) {
+compiled_result compile_if(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto stmt = std::get<IfStmt>(n->data);
 
     size_t stack_start = wip.next_stack;
@@ -713,7 +734,7 @@ compiled_result compile_if(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_dowhile(Node* n, compiler_wip& wip) {
+compiled_result compile_dowhile(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto dowhile = std::get<DoWhile>(n->data);
 
     size_t stack_start = wip.next_stack;
@@ -755,12 +776,12 @@ compiled_result compile_dowhile(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_globalblock(Node* n, compiler_wip& wip) {
+compiled_result compile_globalblock(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto block = std::get<GlobalBlock>(n->data);
     return compile_nodelist(block.nodes, wip);
 }
 
-compiled_result compile_methoddecl(Node* n, compiler_wip& wip) {
+compiled_result compile_methoddecl(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto method = std::get<MethodDeclaration>(n->data);
 
     wip.method_indices[method.name] = wip.methods.size();
@@ -779,7 +800,7 @@ compiled_result compile_methoddecl(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_methoddef(Node* n, compiler_wip& wip) {
+compiled_result compile_methoddef(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto method = std::get<MethodDefinition>(n->data);
 
     auto& methodinfo = get_method_named(method.name, wip);
@@ -789,7 +810,7 @@ compiled_result compile_methoddef(Node* n, compiler_wip& wip) {
     wip.local_variables.push_back({});
 
     size_t param_size = 0;
-    auto type = wip.types.at(methodinfo.type);
+    auto type = wip.types.get_type(methodinfo.type);
     auto typedata = std::get<MethodType>(type.type);
 
     if (typedata.parameters.size() != method.param_names.size()) {
@@ -798,13 +819,13 @@ compiled_result compile_methoddef(Node* n, compiler_wip& wip) {
 
     for (size_t i = 0; i < typedata.parameters.size(); i++) {
         std::string ptype_name = typedata.parameters[i].type;
-        auto& pt = wip.types.at(ptype_name);
+        auto& pt = wip.types.get_type(ptype_name);
         param_size += pt.size;
         reserve_local(method.param_names[i], ptype_name, wip);
     }
 
     // always reserve at least the ret type
-    auto rettype = wip.types.at(typedata.return_type);
+    auto rettype = wip.types.get_type(typedata.return_type);
     if (param_size < rettype.size) {
         param_size = rettype.size;
     }
@@ -841,7 +862,7 @@ compiled_result compile_methoddef(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_return(Node* n, compiler_wip& wip) {
+compiled_result compile_return(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto ret = std::get<ReturnValue>(n->data);
     size_t max_used = 0;
 
@@ -851,7 +872,7 @@ compiled_result compile_return(Node* n, compiler_wip& wip) {
         max_used = value.stack_bytes_used;
 
         if (ret_address != std::get<BytecodeParam>(value.address)) {
-            auto opinfo = assignment_opcode(value.type);
+            auto opinfo = assignment_opcode(value.type, wip);
             wip.bytecodes.push_back(
                 Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), StackAddressForward(LocMemoryDirect, 0))
             );
@@ -869,7 +890,7 @@ compiled_result compile_return(Node* n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_methodparam(Node* n, MethodTypeParameter type, compiler_wip& wip) {
+compiled_result compile_methodparam(std::shared_ptr<Node> n, MethodTypeParameter type, compiler_wip& wip) {
     auto param = std::get<CallParam>(n->data);
     // but how do I make sure I append to the END of the stack.
     // if some other step makes the stack even larger, then these values are wrong.
@@ -879,7 +900,7 @@ compiled_result compile_methodparam(Node* n, MethodTypeParameter type, compiler_
 
     size_t last_stack = wip.next_stack;
     auto store_address = StackAddressForward(LocMemoryDirect, wip.next_stack);
-    auto typeinfo = wip.types.at(type.type);
+    auto typeinfo = wip.types.get_type(type.type);
 
     // TODO: suggesting positions would REALLY help here
     auto value = compile_node(param.value, wip, {});
@@ -903,7 +924,7 @@ compiled_result compile_methodparam(Node* n, MethodTypeParameter type, compiler_
         );
     }
     else if (std::get<BytecodeParam>(value.address) != store_address) {
-        auto opinfo = assignment_opcode(value.type);
+        auto opinfo = assignment_opcode(value.type, wip);
         wip.bytecodes.push_back(
             Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), store_address)
         );
@@ -922,7 +943,7 @@ compiled_result compile_methodparam(Node* n, MethodTypeParameter type, compiler_
     };
 }
 
-compiled_result compile_methodcall(Node* n, compiler_wip& wip) {
+compiled_result compile_methodcall(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto method = std::get<MethodCall>(n->data);
 
     size_t max_used = 0;
@@ -930,7 +951,7 @@ compiled_result compile_methodcall(Node* n, compiler_wip& wip) {
     auto callable = compile_node(method.callable, wip, {});
     max_used = callable.stack_bytes_used;
 
-    auto methodtype = wip.types.at(callable.type);
+    auto methodtype = wip.types.get_type(callable.type);
     if (!std::holds_alternative<MethodType>(methodtype.type)) {
         throw "LHS is not a function";
     }
@@ -940,7 +961,7 @@ compiled_result compile_methodcall(Node* n, compiler_wip& wip) {
     if (typeinfo.parameters.size() != method.params.size()) {
         throw "Incorrect number of params";
     }
-    auto returntype = wip.types.at(typeinfo.return_type);
+    auto returntype = wip.types.get_type(typeinfo.return_type);
 
     size_t base = wip.next_stack;
     size_t total_requied = callable.stack_bytes_used;
@@ -968,6 +989,7 @@ compiled_result compile_methodcall(Node* n, compiler_wip& wip) {
         p1 = std::get<BytecodeParam>(callable.address);
     }
 
+    std::cout << "add call " << wip.bytecodes.size() << "\n";
     wip.bytecodes.push_back(
         Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base))
     );
@@ -984,10 +1006,10 @@ compiled_result compile_methodcall(Node* n, compiler_wip& wip) {
     };
 }
 
-//compiled_result compile_(Node* n, compiler_wip& wip) {
+//compiled_result compile_(std::shared_ptr<Node> n, compiler_wip& wip) {
 //}
 
-compiled_result compile_node(Node* n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+compiled_result compile_node(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     if (std::holds_alternative<ConstS32>(n->data)) {
         return compile_const_s32(n, wip);
     }
@@ -1044,7 +1066,7 @@ compiled_result compile_node(Node* n, compiler_wip& wip, std::optional<BytecodeP
 }
 
 void
-generate_bytecode(Node* ast_root, compiler_wip& wip) {
+generate_bytecode(std::shared_ptr<Node> ast_root, compiler_wip& wip) {
     wip.local_variables.push_back({});
     compile_node(ast_root, wip, {});
 }
@@ -1103,80 +1125,6 @@ link(compiler_wip& wip) {
 }
 
 void
-adjust_labels(compiler_wip& wip, size_t index) {
-    std::cout << "Removed " << index << "\n";
-    for (auto& ml : wip.methodlinks) {
-        if (ml.index > index) {
-            ml.index--;
-        }
-    }
-    for (auto& ll : wip.labellinks) {
-        if (ll.index > index) {
-            ll.index--;
-        }
-    }
-    for (auto& m : wip.methods) {
-        if (m.address > index) {
-            m.address--;
-        }
-    }
-    for (auto& l : wip.labels) {
-        if (l.second > index) {
-            l.second--;
-        }
-    }
-}
-
-bool
-is_boundary(compiler_wip& wip, size_t index) {
-    for (auto& ml : wip.methodlinks) {
-        if (ml.index == index) {
-            return true;
-        }
-    }
-    for (auto& ll : wip.labellinks) {
-        if (ll.index == index) {
-            return true;
-        }
-    }
-    for (auto& m : wip.methods) {
-        if (m.address == index) {
-            return true;
-        }
-    }
-    for (auto& l : wip.labels) {
-        if (l.second == index) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void
-optimize_bytecode(compiler_wip& wip) {
-    std::vector<size_t> removals;
-    for (size_t i = 1; i < wip.bytecodes.size(); i++) {
-        auto& first = wip.bytecodes[i-1];
-        auto& second = wip.bytecodes[i];
-
-        if (second.op == Bytecode::s32Set || second.op == Bytecode::f32Set) {
-            // TODO: method boundaries
-            if (!is_boundary(wip, i) && first.p3 == second.p1 && first.l3 == second.l1) {
-                first.l3 = second.l1;
-                first.p3 = second.p1;
-                removals.insert(removals.begin(), i);
-            }
-        }
-    }
-    for (auto r : removals) {
-        std::cout << "Removing index " << r << " " << wip.bytecodes.size() << "\n";
-        auto it = wip.bytecodes.begin()+r;
-        adjust_labels(wip, r);
-        wip.bytecodes.erase(it);
-    }
-}
-
-void
 print_program(compiler_wip& wip) {
     std::cout << "\nGlobals:\n";
     for (auto& m : wip.local_variables[0]) {
@@ -1198,8 +1146,8 @@ print_program(compiler_wip& wip) {
     }
 }
 
-std::type_index
-findtype(const TypeInfo& type) {
+std::optional<std::type_index>
+get_cpp_type(const TypeInfo& type) {
     if (std::holds_alternative<PrimitiveType>(type.type)) {
         auto prim = std::get<PrimitiveType>(type.type);
         switch (prim) {
@@ -1213,34 +1161,43 @@ findtype(const TypeInfo& type) {
             return typeid(float);
         }
     }
-    throw "Unable to convert type to C++";
+    if (type.backing_type) {
+        return type.backing_type.value();
+    }
+    return {};
 }
 
 std::shared_ptr<Program>
-Compile(Node* ast_root, const TypeTable& types, const ImportedTable& imported_methods) {
+compile_ast(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods) {
     compiler_wip wip(types, imported_methods);
     generate_bytecode(ast_root, wip);
-    //print_program(wip);
-    //optimize_bytecode(wip);
     link(wip);
     print_program(wip);
+    wip.bytecodes.push_back(Opcode(Bytecode::Break));
 
     auto p = std::make_shared<Program>(wip.next_const);
 
     for (auto& m : wip.local_variables[0]) {
-        auto t = wip.types.at(m.second.type);
+        auto t = wip.types.get_type(m.second.type);
         p->add_global_index(m.first, t.size, m.second.address);
     }
 
     for (auto& it : imported_methods) {
-        p->add_builtin(it.first, it.second);
+        p->add_builtin(it.name, it.runnable);
     }
 
     for (auto& v : wip.constant_values) {
         if (std::holds_alternative<int>(v)) {
             p->add_constant<int>("", std::get<int>(v));
-        } else if (std::holds_alternative<float>(v)) {
+        }
+        else if (std::holds_alternative<float>(v)) {
             p->add_constant<float>("", std::get<float>(v));
+        }
+        else if (std::holds_alternative<size_t>(v)) {
+            p->add_constant<size_t>("", std::get<size_t>(v));
+        }
+        else {
+            throw "Unknown constant type";
         }
     }
     p->add_code(wip.bytecodes);
@@ -1248,13 +1205,26 @@ Compile(Node* ast_root, const TypeTable& types, const ImportedTable& imported_me
     for (auto& m : wip.methods) {
         p->add_method_addr(m.name, m.param_bytes, m.stack_bytes, m.address);
         
-        auto& t = std::get<MethodType>(wip.types.at(m.type).type);
+        auto& t = std::get<MethodType>(wip.types.get_type(m.type).type);
         std::vector<std::type_index> types;
-        types.push_back(findtype(wip.types.at(t.return_type)));
-        for (auto& p : t.parameters) {
-            types.push_back(findtype(wip.types.at(p.type)));
+        bool has_all = true;
+        auto cpp_type = get_cpp_type(wip.types.get_type(t.return_type));
+        // methods are not registered for C++ if any type is not backed by a C++ type.
+        if (!cpp_type) {
+            continue;
         }
-        p->register_method(m.name, types);
+        types.push_back(cpp_type.value());
+        for (auto& p : t.parameters) {
+            cpp_type = get_cpp_type(wip.types.get_type(p.type));
+            if (!cpp_type) {
+                has_all = false;
+                break;
+            }
+            types.push_back(cpp_type.value());
+        }
+        if (has_all) {
+            p->register_method(m.name, types);
+        }
     }
 
     return p;

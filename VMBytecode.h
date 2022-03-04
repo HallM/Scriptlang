@@ -5,18 +5,25 @@
 enum class Bytecode: size_t {
     Break, // _ _ _
 
+    // 1
     DataAddress, // [a] [out] _
     FunctionAddress, // [a] [out] _
     Dereference, // [a] [size] [out]
 
+    // 4
+    refSet,
     s32Set, // [a] [out] _
     f32Set,
 
+    // 7
     s32SetFromIndexed, // [a] [indx] [out]
     s32SetIntoIndexed, // [a] [out] [indx]
     f32SetFromIndexed,
     f32SetIntoIndexed,
 
+    refAdd, // [a] [b] [out]
+
+    // 12
     s32Add, // [a] [b] [out]
     s32Sub,
     s32Mul,
@@ -36,6 +43,7 @@ enum class Bytecode: size_t {
     s32ShiftLeft,
     s32ShiftRight,
 
+    // 30
     f32Add,
     f32Sub,
     f32Mul,
@@ -54,6 +62,8 @@ enum class Bytecode: size_t {
     bEqual,
     bNotEqual,
     bNot, // [a] [out]
+
+    // 47
 
     // sets the base plus handles reserving some stack space for a function
     // calls assume that base-P is each param. for example: int f(int a,int b)
@@ -79,6 +89,7 @@ enum class Bytecode: size_t {
     bJTrue, // a [jumpto]
     bJFalse,
 
+    // 52
     // conditional jumps
     // JLT [p1] [p2] [jumpto]
     f32JLT, // a b [jumpto]
@@ -94,6 +105,7 @@ enum class Bytecode: size_t {
     s32JGE,
     s32JEQ,
     s32JNE,
+    // 64
 };
 
 // we need 4 bits

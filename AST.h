@@ -1,9 +1,15 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <string>
+#include <typeindex>
+#include <typeinfo>
 #include <variant>
 #include <vector>
+
+#include "Types.h"
+#include "VMFFI.h"
 
 // Tokenizer takes file contents (string) and produces list of tokens
 // Parser takes tokens and produces a typed AST along with some metadata (what methods/consts exist)
@@ -15,52 +21,14 @@
 //    5. generate a to-link table
 // Linker phase will link the addresses in bytecode to produce a Program
 
-enum class PrimitiveType: unsigned int {
-    empty,
-    boolean,
-    s32,
-    f32,
-};
-struct TupleTypeValue {
-    size_t offset;
-    std::string type;
-};
-struct TupleType {
-    std::vector<TupleTypeValue> values;
-};
 
-struct EnumTypeNamedValue {
+
+struct ImportedMethod {
     std::string name;
+    IRunnable* runnable;
     std::string type;
-};
-struct EnumType {
-    std::vector<EnumTypeNamedValue> values;
-};
-
-struct StructTypeMember {
-    std::string name;
-    size_t offset;
-    std::string type;
-};
-struct StructType {
-    std::unordered_map<std::string, StructTypeMember> members;
-};
-
-struct MethodTypeParameter {
-    std::string type;
-};
-struct MethodType {
-    std::string return_type;
-    std::vector<MethodTypeParameter> parameters;
-};
-
-struct TypeInfo {
-    std::string name;
-    // if this type is a reference type, this will be set to the type it refers to.
-    std::optional<std::string> ref_type;
-    size_t size;
-    std::variant<PrimitiveType, StructType, TupleType, EnumType, MethodType> type;
-    std::unordered_map<std::string, std::string> methods;
+    std::type_index ret_type;
+    std::vector<std::type_index> param_types;
 };
 
 struct Node;
@@ -107,8 +75,8 @@ enum class BinaryOps {
 
 struct BinaryOperation {
     BinaryOps op;
-    Node* lhs;
-    Node* rhs;
+    std::shared_ptr<Node> lhs;
+    std::shared_ptr<Node> rhs;
 };
 
 enum class UnaryOps {
@@ -124,14 +92,14 @@ enum class UnaryOps {
 
 struct UnaryOperation {
     UnaryOps op;
-    Node* value;
+    std::shared_ptr<Node> value;
 };
 
 struct SetOperation {
     // no op set means a standard assignment.
     std::optional<BinaryOps> op;
-    Node* lhs;
-    Node* rhs;
+    std::shared_ptr<Node> lhs;
+    std::shared_ptr<Node> rhs;
 };
 
 struct Identifier {
@@ -139,8 +107,8 @@ struct Identifier {
 };
 
 struct AccessMember {
-    Node* container;
-    Node* member;
+    std::shared_ptr<Node> container;
+    std::shared_ptr<Node> member;
 };
 
 struct VariableDeclaration {
@@ -149,20 +117,20 @@ struct VariableDeclaration {
 };
 
 struct Block {
-    std::vector<Node*> nodes;
+    std::vector<std::shared_ptr<Node>> nodes;
 };
 struct GlobalBlock {
-    std::vector<Node*> nodes;
+    std::vector<std::shared_ptr<Node>> nodes;
 };
 
 struct IfStmt {
-    Node* condition;
-    Node* then;
-    std::optional<Node*> otherwise;
+    std::shared_ptr<Node> condition;
+    std::shared_ptr<Node> then;
+    std::optional<std::shared_ptr<Node>> otherwise;
 };
 struct DoWhile {
-    Node* block;
-    Node* condition;
+    std::shared_ptr<Node> block;
+    std::shared_ptr<Node> condition;
 };
 
 struct MethodDeclaration {
@@ -171,20 +139,21 @@ struct MethodDeclaration {
 };
 struct MethodDefinition {
     std::string name;
+    std::string type;
     std::vector<std::string> param_names;
-    Node* node;
+    std::shared_ptr<Node> node;
 };
 struct ReturnValue {
-    std::optional<Node*> value;
+    std::optional<std::shared_ptr<Node>> value;
 };
 
 struct CallParam {
     // TODO: named params?
-    Node* value;
+    std::shared_ptr<Node> value;
 };
 struct MethodCall {
-    Node* callable;
-    std::vector<Node*> params;
+    std::shared_ptr<Node> callable;
+    std::vector<std::shared_ptr<Node>> params;
 };
 
 struct UnknownAST{};
@@ -211,4 +180,10 @@ struct Node {
         CallParam,
         MethodCall
     > data;
+};
+
+struct FileNode {
+    std::string filename;
+    std::shared_ptr<Node> root;
+    std::vector<std::shared_ptr<Node>> nodes;
 };
