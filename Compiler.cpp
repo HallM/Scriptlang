@@ -783,6 +783,7 @@ compiled_result compile_globalblock(std::shared_ptr<Node> n, compiler_wip& wip) 
 
 compiled_result compile_methoddecl(std::shared_ptr<Node> n, compiler_wip& wip) {
     auto method = std::get<MethodDeclaration>(n->data);
+    std::cout << "Added method " << method.name << "\n";
 
     wip.method_indices[method.name] = wip.methods.size();
     wip.methods.push_back(methodinfo{

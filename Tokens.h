@@ -25,128 +25,42 @@ struct CommentToken {
     std::string text;
 };
 
+struct KeywordToken {
+    std::string keyword;
+};
+
 struct IdentifierToken {
     std::string identifier;
+};
+
+struct OperatorToken {
+    std::string oper;
 };
 
 struct StringToken {
     std::string text;
 };
-
 struct S32Token {
     int number;
 };
-
 struct F32Token {
-    double number;
+    float number;
 };
-
-struct ContinueToken {};
-struct ReturnToken {};
-struct BreakToken {};
-struct ElseToken {};
-struct ForToken {};
-struct FnToken {};
-struct IfToken {};
-struct InToken {};
-
-struct OpLShiftAssignToken {};
-struct OpRShiftAssignToken {};
-struct OpOrToken {};
-struct OpAndToken {};
-struct OpEqToken {};
-struct OpNeqToken {};
-struct OpLessEqToken {};
-struct OpGreaterEqToken {};
-struct OpLShiftToken {};
-struct OpRShiftToken {};
-struct OpAddAssignToken {};
-struct OpSubAssignToken {};
-struct OpMulAssignToken {};
-struct OpDivAssignToken {};
-struct OpModAssignToken {};
-struct OpBitOrAssignToken {};
-struct OpBitAndAssignToken {};
-struct OpBitXorAssignToken {};
-struct OpNotToken {};
-struct OpLessToken {};
-struct OpGreaterToken {};
-struct OpBitOrToken {};
-struct OpBitAndToken {};
-struct OpBitXorToken {};
-struct OpAddToken {};
-struct OpSubToken {};
-struct OpMulToken {};
-struct OpDivToken {};
-struct OpModToken {};
-struct OpCommaToken {};
-struct OpParenOpenToken {};
-struct OpParenCloseToken {};
-struct OpBraceOpenToken {};
-struct OpBraceCloseToken {};
-struct OpBracketOpenToken {};
-struct OpBracketCloseToken {};
-struct OpColonToken {};
-struct OpAssignToken {};
-struct OpDotToken {};
+struct BoolToken {
+    bool value;
+};
 
 typedef std::variant<
     SpaceToken,
     NewlineToken,
     CommentToken,
+    KeywordToken,
     IdentifierToken,
+    OperatorToken,
     StringToken,
     S32Token,
     F32Token,
-
-    ContinueToken,
-    ReturnToken,
-    BreakToken,
-    ElseToken,
-    ForToken,
-    FnToken,
-    IfToken,
-    InToken,
-
-    OpLShiftAssignToken,
-    OpRShiftAssignToken,
-    OpOrToken,
-    OpAndToken,
-    OpEqToken,
-    OpNeqToken,
-    OpLessEqToken,
-    OpGreaterEqToken,
-    OpLShiftToken,
-    OpRShiftToken,
-    OpAddAssignToken,
-    OpSubAssignToken,
-    OpMulAssignToken,
-    OpDivAssignToken,
-    OpModAssignToken,
-    OpBitOrAssignToken,
-    OpBitAndAssignToken,
-    OpBitXorAssignToken,
-    OpNotToken,
-    OpLessToken,
-    OpGreaterToken,
-    OpBitOrToken,
-    OpBitAndToken,
-    OpBitXorToken,
-    OpAddToken,
-    OpSubToken,
-    OpMulToken,
-    OpDivToken,
-    OpModToken,
-    OpCommaToken,
-    OpParenOpenToken,
-    OpParenCloseToken,
-    OpBraceOpenToken,
-    OpBraceCloseToken,
-    OpBracketOpenToken,
-    OpBracketCloseToken,
-    OpColonToken,
-    OpAssignToken,
-    OpDotToken
+    BoolToken
 > TokenData;
 
 class Token {

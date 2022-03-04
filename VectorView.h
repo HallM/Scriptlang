@@ -30,7 +30,7 @@ public:
     }
 
     bool empty() const {
-        return position >= length;
+        return length <= 0;
     }
 
     size_t size() const {

@@ -40,25 +40,24 @@ try_comment(std::string line, Position start) {
 std::optional<std::shared_ptr<Token>>
 try_keyword(std::string line, Position start) {
     // TODO: optimize
-    std::vector<std::pair<std::string, TokenData>> keywords = {
-        {"continue", ContinueToken{}},
-        {"return", ReturnToken{}},
-        {"break", BreakToken{}},
-        {"else", ElseToken{}},
-        {"for", ForToken{}},
-        {"fn", FnToken{}},
-        {"if", IfToken{}},
-        {"in", InToken{}},
+    std::vector<std::string> keywords = {
+        "continue",
+        "return",
+        "break",
+        "else",
+        "for",
+        "fn",
+        "if",
+        "in"
     };
 
-    for (auto& p : keywords) {
-        auto& k = p.first;
+    for (auto& k : keywords) {
         if (k.length() > line.length()) {
             continue;
         }
         if (line.substr(0, k.length()) == k) {
             Position end = {start.line, start.col + k.length()};
-            return std::make_shared<Token>(Span{start, end}, p.second);
+            return std::make_shared<Token>(Span{start, end}, KeywordToken{k});
         }
     }
     return {};
@@ -79,56 +78,56 @@ try_identifier(std::string line, Position start) {
 
 std::optional<std::shared_ptr<Token>>
 try_operator(std::string line, Position start) {
-    std::vector<std::pair<std::string, TokenData>> ops = {
-        {"<<=", OpLShiftAssignToken{}},
-        {">>=", OpRShiftAssignToken{}},
-        {"||", OpOrToken{}},
-        {"&&", OpAndToken{}},
-        {"==", OpEqToken{}},
-        {"!=", OpNeqToken{}},
-        {"<=", OpLessEqToken{}},
-        {">=", OpGreaterEqToken{}},
-        {"<<", OpLShiftToken{}},
-        {">>", OpRShiftToken{}},
-        {"+=", OpAddAssignToken{}},
-        {"-=", OpSubAssignToken{}},
-        {"*=", OpMulAssignToken{}},
-        {"/=", OpDivAssignToken{}},
-        {"%=", OpModAssignToken{}},
-        {"|=", OpBitOrAssignToken{}},
-        {"&=", OpBitAndAssignToken{}},
-        {"^=", OpBitXorAssignToken{}},
-        {"!", OpNotToken{}},
-        {"<", OpLessToken{}},
-        {">", OpGreaterToken{}},
-        {"|", OpBitOrToken{}},
-        {"&", OpBitAndToken{}},
-        {"^", OpBitXorToken{}},
-        {"+", OpAddToken{}},
-        {"-", OpSubToken{}},
-        {"*", OpMulToken{}},
-        {"/", OpDivToken{}},
-        {"%", OpModToken{}},
-        {",", OpCommaToken{}},
-        {"(", OpParenOpenToken{}},
-        {")", OpParenCloseToken{}},
-        {"{", OpBraceOpenToken{}},
-        {"}", OpBraceCloseToken{}},
-        {"[", OpBracketOpenToken{}},
-        {"]", OpBracketCloseToken{}},
-        {":", OpColonToken{}},
-        {"=", OpAssignToken{}},
-        {".", OpDotToken{}}
+    std::vector<std::string> ops = {
+        "<<=",
+        ">>=",
+        "||",
+        "&&",
+        "**",
+        "==",
+        "!=",
+        "<=",
+        ">=",
+        "<<",
+        ">>",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "|=",
+        "&=",
+        "^=",
+        "!",
+        "<",
+        ">",
+        "|",
+        "&",
+        "^",
+        "+",
+        "-",
+        "*",
+        "/",
+        "%",
+        ",",
+        "(",
+        ")",
+        "{",
+        "}",
+        "[",
+        "]",
+        ":",
+        "=",
+        "."
     };
 
-    for (auto& p : ops) {
-        auto& o = p.first;
+    for (auto& o : ops) {
         if (o.length() > line.length()) {
             continue;
         }
         if (line.substr(0, o.length()) == o) {
             Position end = {start.line, start.col + o.length()};
-            return std::make_shared<Token>(Span{start, end}, p.second);
+            return std::make_shared<Token>(Span{start, end}, OperatorToken{o});
         }
     }
     return {};
@@ -185,7 +184,27 @@ try_float(std::string line, Position start) {
         return {};
     }
     Position end = Position{start.line, start.col + i};
-    return std::make_shared<Token>(Span{start, end}, F32Token{std::stod(line.substr(0, i))});
+    return std::make_shared<Token>(Span{start, end}, F32Token{std::stof(line.substr(0, i))});
+}
+
+std::optional<std::shared_ptr<Token>>
+try_bool(std::string line, Position start) {
+    std::vector<std::pair<std::string, bool>> bools = {
+        {"true", true},
+        {"false", false}
+    };
+
+    for (auto& p : bools) {
+        auto str = p.first;
+        if (str.length() > line.length()) {
+            continue;
+        }
+        if (line.substr(0, str.length()) == str) {
+            Position end = {start.line, start.col + str.length()};
+            return std::make_shared<Token>(Span{start, end}, BoolToken{p.second});
+        }
+    }
+    return {};
 }
 
 std::vector<std::shared_ptr<Token>>
@@ -200,7 +219,8 @@ tokenize_string(std::string contents) {
         try_operator,
         try_string,
         try_int,
-        try_float
+        try_float,
+        try_bool
     };
 
     std::vector<std::shared_ptr<Token>> tokens;

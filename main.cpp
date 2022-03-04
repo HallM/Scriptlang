@@ -259,12 +259,23 @@ void compileast_demo() {
 
 void
 compile_code_test() {
+    std::cout << "\n++++++++\n";
+
     std::string code =
-        "fn average(x: f32, y: f32): f32 {}";
+        "fn average(x: f32, y: f32): f32 {\n"
+        "  return (x + y) / 2.0\n"
+        "}";
 
     TypeTable types;
     auto tokens = tokenize_string(code);
     auto ast = parse_to_ast("code.wut", tokens, types);
+    auto program = compile_ast(ast->root, types, {});
+
+    auto scriptaverage = program->method<float,float,float>("average");
+    std::shared_ptr<VMFixedStack> globals = program->generate_state();
+    VM* vm = new VM(VMSTACK_PAGE_SIZE);
+    float avg = scriptaverage(*vm, *globals, 3, 2);
+    std::cout << "checking avg: " << avg << "\n";
 }
 
 int main() {
