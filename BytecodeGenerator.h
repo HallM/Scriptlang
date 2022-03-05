@@ -12,4 +12,4 @@
 
 typedef std::vector<ImportedMethod> ImportedMethods;
 
-std::shared_ptr<Program> compile_ast(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods);
+std::shared_ptr<Program> generate_bytecode(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods);

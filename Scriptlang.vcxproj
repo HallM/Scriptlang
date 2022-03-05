@@ -146,7 +146,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Program.cpp" />
-    <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="BytecodeGenerator.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="Types.cpp" />
     <ClCompile Include="VM.cpp" />
@@ -156,7 +156,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AST.h" />
-    <ClInclude Include="Compiler.h" />
+    <ClInclude Include="BytecodeGenerator.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Program.h" />
     <ClInclude Include="Tokenizer.h" />

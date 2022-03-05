@@ -1,4 +1,4 @@
-#include "Compiler.h"
+#include "BytecodeGenerator.h"
 
 #include <iostream>
 #include <memory>
@@ -1164,7 +1164,7 @@ get_cpp_type(const TypeInfo& type) {
 }
 
 std::shared_ptr<Program>
-compile_ast(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods) {
+generate_bytecode(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods) {
     compiler_wip wip(types, imported_methods);
     generate_bytecode(ast_root, wip);
     link(wip);

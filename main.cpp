@@ -13,7 +13,7 @@
 #include "VMFFI.h"
 #include "Program.h"
 #include "AST.h"
-#include "Compiler.h"
+#include "BytecodeGenerator.h"
 #include "Parser.h"
 #include "Tokenizer.h"
 #include "Types.h"
@@ -236,7 +236,7 @@ void compileast_demo() {
         }
     };
 
-    auto program = compile_ast(std::make_shared<Node>(root), types, imported_methods);
+    auto program = generate_bytecode(std::make_shared<Node>(root), types, imported_methods);
     auto dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
     std::cout << "compile time: " << dur << "s\n";
 
@@ -317,7 +317,7 @@ compile_code_test() {
 
     auto tokens = tokenize_string(contents);
     auto ast = parse_to_ast("test.wut", tokens, types);
-    auto program = compile_ast(ast->root, types, imported_methods);
+    auto program = generate_bytecode(ast->root, types, imported_methods);
 
     auto dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
     std::cout << "compile time: " << dur << "s\n";

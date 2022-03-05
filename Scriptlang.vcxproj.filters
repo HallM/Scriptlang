@@ -51,7 +51,7 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files\Demo</Filter>
     </ClCompile>
-    <ClCompile Include="Compiler.cpp">
+    <ClCompile Include="BytecodeGenerator.cpp">
       <Filter>Source Files\Compiler</Filter>
     </ClCompile>
     <ClCompile Include="Tokenizer.cpp">
@@ -83,7 +83,7 @@
     <ClInclude Include="AST.h">
       <Filter>Header Files\Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="Compiler.h">
+    <ClInclude Include="BytecodeGenerator.h">
       <Filter>Header Files\Compiler</Filter>
     </ClInclude>
     <ClInclude Include="Tokenizer.h">
