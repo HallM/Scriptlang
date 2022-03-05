@@ -8,10 +8,12 @@
 #include "Types.h"
 #include "VMFFI.h"
 
+namespace MattScript {
+
 template <typename T>
 class StructImportBuilder {
 public:
-    StructImportBuilder(std::string name, TypeTable& types) : _name(name), _types(types) {}
+    StructImportBuilder(std::string name, Types::TypeTable& types) : _name(name), _types(types) {}
 
     template <typename M>
     StructImportBuilder<T>& add_member(std::string member_name, size_t offset) {
@@ -23,9 +25,9 @@ public:
         _types.imported_struct_type<T>(_name, _members);
     }
 private:
-    TypeTable& _types;
+    Types::TypeTable& _types;
     std::string _name;
-    std::vector<StructTypeMember> _members;
+    std::vector<Types::StructTypeMember> _members;
 };
 
 class Compiler {
@@ -44,7 +46,7 @@ public:
         std::string type_name = _types.imported_method_type<Ret, Args...>();
         std::shared_ptr<IRunnable> wrapped = std::make_shared<BuiltinRunnable<Ret, Args...>>(method);
 
-        auto m = ImportedMethod{
+        auto m = Ast::ImportedMethod{
             name,
             wrapped,
             type_name,
@@ -55,6 +57,8 @@ public:
     }
 
 private:
-    TypeTable _types;
-    std::vector<ImportedMethod> _methods;
+    Types::TypeTable _types;
+    std::vector<Ast::ImportedMethod> _methods;
 };
+
+} // MattScript

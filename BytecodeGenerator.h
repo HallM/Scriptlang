@@ -10,6 +10,12 @@
 #include "Program.h"
 #include "Types.h"
 
-typedef std::vector<ImportedMethod> ImportedMethods;
+namespace MattScript {
+namespace Generator {
 
-std::shared_ptr<Program> generate_bytecode(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods);
+typedef std::vector<Ast::ImportedMethod> ImportedMethods;
+
+std::shared_ptr<Program> generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& types, const ImportedMethods& imported_methods);
+
+} // bgen
+} // MattScript

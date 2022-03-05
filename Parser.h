@@ -8,4 +8,10 @@
 #include "Tokens.h"
 #include "Types.h"
 
-std::shared_ptr<FileNode> parse_to_ast(std::string file_name, std::vector<std::shared_ptr<Token>> tokens, TypeTable& types);
+namespace MattScript {
+namespace Parser {
+
+std::shared_ptr<Ast::FileNode> parse_to_ast(std::string file_name, std::vector<std::shared_ptr<Tokens::Token>> tokens, Types::TypeTable& types);
+
+}
+}

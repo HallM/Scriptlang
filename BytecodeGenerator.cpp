@@ -34,6 +34,9 @@
 // optimize jumps, short circuits, etc
 //
 
+namespace MattScript {
+namespace Generator {
+
 // TODO: get rid of these or move them to somewhere central
 const std::string type_empty = "void";
 const std::string type_bool = "bool";
@@ -45,64 +48,64 @@ struct operinfo {
     std::string type_returned;
 };
 
-std::unordered_map<BinaryOps, operinfo> binary_opcode(std::string type) {
+std::unordered_map<Ast::BinaryOps, operinfo> binary_opcode(std::string type) {
     if (type == type_s32) {
         return {
-            {BinaryOps::Add, {Bytecode::s32Add, type_s32}},
-            {BinaryOps::Subtract, {Bytecode::s32Sub, type_s32}},
-            {BinaryOps::Multiply, {Bytecode::s32Mul, type_s32}},
-            {BinaryOps::Divide, {Bytecode::s32Div, type_s32}},
-            {BinaryOps::Modulo, {Bytecode::s32Mod, type_s32}},
-            {BinaryOps::Eq, {Bytecode::s32Equal, type_bool}},
-            {BinaryOps::NotEq, {Bytecode::s32NotEqual, type_bool}},
-            {BinaryOps::Less, {Bytecode::s32Less, type_bool}},
-            {BinaryOps::LessEqual, {Bytecode::s32LessEqual, type_bool}},
-            {BinaryOps::Greater, {Bytecode::s32Greater, type_bool}},
-            {BinaryOps::GreaterEqual, {Bytecode::s32GreaterEqual, type_bool}},
-            {BinaryOps::BitShiftLeft, {Bytecode::s32ShiftLeft, type_s32}},
-            {BinaryOps::BitShiftRight, {Bytecode::s32ShiftRight, type_s32}},
-            {BinaryOps::BitAnd, {Bytecode::s32BitAnd, type_s32}},
-            {BinaryOps::BitOr, {Bytecode::s32BitOr, type_s32}},
-            {BinaryOps::BitXor, {Bytecode::s32BitXor, type_s32}},
+            {Ast::BinaryOps::Add, {Bytecode::s32Add, type_s32}},
+            {Ast::BinaryOps::Subtract, {Bytecode::s32Sub, type_s32}},
+            {Ast::BinaryOps::Multiply, {Bytecode::s32Mul, type_s32}},
+            {Ast::BinaryOps::Divide, {Bytecode::s32Div, type_s32}},
+            {Ast::BinaryOps::Modulo, {Bytecode::s32Mod, type_s32}},
+            {Ast::BinaryOps::Eq, {Bytecode::s32Equal, type_bool}},
+            {Ast::BinaryOps::NotEq, {Bytecode::s32NotEqual, type_bool}},
+            {Ast::BinaryOps::Less, {Bytecode::s32Less, type_bool}},
+            {Ast::BinaryOps::LessEqual, {Bytecode::s32LessEqual, type_bool}},
+            {Ast::BinaryOps::Greater, {Bytecode::s32Greater, type_bool}},
+            {Ast::BinaryOps::GreaterEqual, {Bytecode::s32GreaterEqual, type_bool}},
+            {Ast::BinaryOps::BitShiftLeft, {Bytecode::s32ShiftLeft, type_s32}},
+            {Ast::BinaryOps::BitShiftRight, {Bytecode::s32ShiftRight, type_s32}},
+            {Ast::BinaryOps::BitAnd, {Bytecode::s32BitAnd, type_s32}},
+            {Ast::BinaryOps::BitOr, {Bytecode::s32BitOr, type_s32}},
+            {Ast::BinaryOps::BitXor, {Bytecode::s32BitXor, type_s32}},
         };
     } else if (type == type_f32) {
         return {
-            {BinaryOps::Add, {Bytecode::f32Add, type_f32}},
-            {BinaryOps::Subtract, {Bytecode::f32Sub, type_f32}},
-            {BinaryOps::Multiply, {Bytecode::f32Mul, type_f32}},
-            {BinaryOps::Divide, {Bytecode::f32Div, type_f32}},
-            {BinaryOps::Modulo, {Bytecode::f32Mod, type_f32}},
-            {BinaryOps::Eq, {Bytecode::f32Equal, type_bool}},
-            {BinaryOps::NotEq, {Bytecode::f32NotEqual, type_bool}},
-            {BinaryOps::Less, {Bytecode::f32Less, type_bool}},
-            {BinaryOps::LessEqual, {Bytecode::f32LessEqual, type_bool}},
-            {BinaryOps::Greater, {Bytecode::f32Greater, type_bool}},
-            {BinaryOps::GreaterEqual, {Bytecode::f32GreaterEqual, type_bool}},
+            {Ast::BinaryOps::Add, {Bytecode::f32Add, type_f32}},
+            {Ast::BinaryOps::Subtract, {Bytecode::f32Sub, type_f32}},
+            {Ast::BinaryOps::Multiply, {Bytecode::f32Mul, type_f32}},
+            {Ast::BinaryOps::Divide, {Bytecode::f32Div, type_f32}},
+            {Ast::BinaryOps::Modulo, {Bytecode::f32Mod, type_f32}},
+            {Ast::BinaryOps::Eq, {Bytecode::f32Equal, type_bool}},
+            {Ast::BinaryOps::NotEq, {Bytecode::f32NotEqual, type_bool}},
+            {Ast::BinaryOps::Less, {Bytecode::f32Less, type_bool}},
+            {Ast::BinaryOps::LessEqual, {Bytecode::f32LessEqual, type_bool}},
+            {Ast::BinaryOps::Greater, {Bytecode::f32Greater, type_bool}},
+            {Ast::BinaryOps::GreaterEqual, {Bytecode::f32GreaterEqual, type_bool}},
         };
     } else if (type == type_bool) {
         return {
-            {BinaryOps::And, {Bytecode::bAnd, type_bool}},
-            {BinaryOps::Or, {Bytecode::bOr, type_bool}},
-            {BinaryOps::Eq, {Bytecode::bEqual, type_bool}},
-            {BinaryOps::NotEq, {Bytecode::bNotEqual, type_bool}},
+            {Ast::BinaryOps::And, {Bytecode::bAnd, type_bool}},
+            {Ast::BinaryOps::Or, {Bytecode::bOr, type_bool}},
+            {Ast::BinaryOps::Eq, {Bytecode::bEqual, type_bool}},
+            {Ast::BinaryOps::NotEq, {Bytecode::bNotEqual, type_bool}},
         };
     }
     return {};
 }
 
-std::unordered_map<UnaryOps, operinfo> unary_opcode(std::string type) {
+std::unordered_map<Ast::UnaryOps, operinfo> unary_opcode(std::string type) {
     if (type == type_s32) {
         return {
-            {UnaryOps::Negate, {Bytecode::s32Negate, type_s32}},
-            {UnaryOps::BitNot, {Bytecode::s32BitNot, type_s32}},
+            {Ast::UnaryOps::Negate, {Bytecode::s32Negate, type_s32}},
+            {Ast::UnaryOps::BitNot, {Bytecode::s32BitNot, type_s32}},
         };
     } else if (type == type_f32) {
         return {
-            {UnaryOps::Negate, {Bytecode::f32Negate, type_f32}},
+            {Ast::UnaryOps::Negate, {Bytecode::f32Negate, type_f32}},
         };
     } else if (type == type_bool) {
         return {
-            {UnaryOps::Not, {Bytecode::bNot, type_bool}},
+            {Ast::UnaryOps::Not, {Bytecode::bNot, type_bool}},
         };
     }
     return {};
@@ -160,7 +163,7 @@ struct methodinfo {
 
 // holds all the necessary tables as we move through the compilation step
 struct compiler_wip {
-    const TypeTable& types;
+    const Types::TypeTable& types;
     const ImportedMethods& imported_methods;
     std::unordered_map<std::string, size_t> imported_method_names;
 
@@ -187,16 +190,16 @@ struct compiler_wip {
     std::unordered_map<std::string, size_t> method_indices;
 
     public:
-    compiler_wip(const TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {
+    compiler_wip(const Types::TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {
         for (size_t i = 0; i < m.size(); i++) {
-            ImportedMethod method = m[i];
+            Ast::ImportedMethod method = m[i];
             std::cout << method.name << " imported\n";
             imported_method_names[method.name] = i;
         }
     }
 };
 
-bool compatible_types(const TypeInfo& a, const TypeInfo& b) {
+bool compatible_types(const Types::TypeInfo& a, const Types::TypeInfo& b) {
     if (a.name == b.name) {
         return true;
     }
@@ -209,7 +212,7 @@ bool compatible_types(const TypeInfo& a, const TypeInfo& b) {
     return false;
 }
 
-const TypeInfo& get_type(std::string type_name, compiler_wip& wip) {
+const Types::TypeInfo& get_type(std::string type_name, compiler_wip& wip) {
     return wip.types.get_type(type_name);
 }
 
@@ -222,15 +225,15 @@ operinfo assignment_opcode(std::string type_name, compiler_wip& wip) {
     if (type.ref_type) {
         return {Bytecode::refSet, type_bool};
     }
-    if (std::holds_alternative<PrimitiveType>(type.type)) {
-        auto prim = std::get<PrimitiveType>(type.type);
-        if (prim == PrimitiveType::s32) {
+    if (std::holds_alternative<Types::PrimitiveType>(type.type)) {
+        auto prim = std::get<Types::PrimitiveType>(type.type);
+        if (prim == Types::PrimitiveType::s32) {
             return {Bytecode::s32Set, type_bool};
         }
-        else if (prim == PrimitiveType::f32) {
+        else if (prim == Types::PrimitiveType::f32) {
             return {Bytecode::f32Set, type_bool};
         }
-        else if (prim == PrimitiveType::boolean) {
+        else if (prim == Types::PrimitiveType::boolean) {
             return {Bytecode::s32Set, type_bool};
         }
     }
@@ -261,10 +264,10 @@ get_method_named(std::string name, compiler_wip& wip) {
     return wip.methods[index];
 }
 
-compiled_result compile_node(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return);
+compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return);
 
-compiled_result compile_const_s32(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto s32node = std::get<ConstS32>(n->data);
+compiled_result compile_const_s32(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto s32node = std::get<Ast::ConstS32>(n->data);
     size_t address = constant<int>(s32node.num, wip);
     return {
         type_s32,
@@ -275,8 +278,8 @@ compiled_result compile_const_s32(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_const_f32(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto f32node = std::get<ConstF32>(n->data);
+compiled_result compile_const_f32(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto f32node = std::get<Ast::ConstF32>(n->data);
     size_t address = constant<float>(f32node.num, wip);
     return {
         type_f32,
@@ -287,8 +290,8 @@ compiled_result compile_const_f32(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_const_bool(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto bnode = std::get<ConstBool>(n->data);
+compiled_result compile_const_bool(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto bnode = std::get<Ast::ConstBool>(n->data);
     size_t address = constant<bool>(bnode.value, wip);
     return {
         type_bool,
@@ -299,8 +302,8 @@ compiled_result compile_const_bool(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_identifier(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto ident = std::get<Identifier>(n->data).name;
+compiled_result compile_identifier(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto ident = std::get<Ast::Identifier>(n->data).name;
 
     for (size_t i = wip.local_variables.size(); i--;) {
         auto lv = wip.local_variables[i];
@@ -356,8 +359,8 @@ compiled_result compile_identifier(std::shared_ptr<Node> n, compiler_wip& wip) {
     throw "Identifier not found";
 }
 
-compiled_result compile_access(std::shared_ptr<Node> n, compiler_wip& wip) {
-    AccessMember access = std::get<AccessMember>(n->data);
+compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    Ast::AccessMember access = std::get<Ast::AccessMember>(n->data);
 
     auto lhs = compile_node(access.container, wip, {});
     auto lhstype = wip.types.get_type(lhs.type);
@@ -390,10 +393,10 @@ compiled_result compile_access(std::shared_ptr<Node> n, compiler_wip& wip) {
     //        };
     //    }
     //}
-    if (std::holds_alternative<StructType>(lhstype.type)) {
-        auto structinfo = std::get<StructType>(lhstype.type);
-        if (std::holds_alternative<Identifier>(access.member->data)) {
-            std::string name = std::get<Identifier>(access.member->data).name;
+    if (std::holds_alternative<Types::StructType>(lhstype.type)) {
+        auto structinfo = std::get<Types::StructType>(lhstype.type);
+        if (std::holds_alternative<Ast::Identifier>(access.member->data)) {
+            std::string name = std::get<Ast::Identifier>(access.member->data).name;
             auto value = structinfo.members.at(name);
             auto value_type = get_type(value.type, wip);
 
@@ -452,13 +455,13 @@ compiled_result reserve_local(std::string name, std::string type_name, compiler_
     };
 }
 
-compiled_result compile_vardecl(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto decl = std::get<VariableDeclaration>(n->data);
+compiled_result compile_vardecl(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto decl = std::get<Ast::VariableDeclaration>(n->data);
     return reserve_local(decl.name, decl.type, wip);
 }
 
-compiled_result compile_unaryop(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
-    auto opnode = std::get<UnaryOperation>(n->data);
+compiled_result compile_unaryop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+    auto opnode = std::get<Ast::UnaryOperation>(n->data);
     size_t stack = 0;
     size_t stack_start = wip.next_stack;
 
@@ -508,7 +511,7 @@ compiled_result compile_unaryop(std::shared_ptr<Node> n, compiler_wip& wip, std:
     };
 }
 
-compiled_result compile_shared_binop(std::shared_ptr<Node> lhs, std::shared_ptr<Node> rhs, BinaryOps operation, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared_ptr<Ast::Node> rhs, Ast::BinaryOps operation, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     // TODO: reduce temporary/stack usage
     // I think I should pass down a "please store here"
     size_t stack = 0;
@@ -581,13 +584,13 @@ compiled_result compile_shared_binop(std::shared_ptr<Node> lhs, std::shared_ptr<
     };
 }
 
-compiled_result compile_binop(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
-    auto opnode = std::get<BinaryOperation>(n->data);
+compiled_result compile_binop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+    auto opnode = std::get<Ast::BinaryOperation>(n->data);
     return compile_shared_binop(opnode.lhs, opnode.rhs, opnode.op, wip, suggested_return);
 }
 
-compiled_result compile_setop(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto opnode = std::get<SetOperation>(n->data);
+compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto opnode = std::get<Ast::SetOperation>(n->data);
     compiled_result assign_value;
     size_t stack_begin = wip.next_stack;
 
@@ -633,7 +636,7 @@ compiled_result compile_setop(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_nodelist(std::vector<std::shared_ptr<Node>> nodes, compiler_wip& wip) {
+compiled_result compile_nodelist(std::vector<std::shared_ptr<Ast::Node>> nodes, compiler_wip& wip) {
     // TODO: support block-expressions
     size_t last_stack = wip.next_stack;
     size_t total_used = 0;
@@ -655,8 +658,8 @@ compiled_result compile_nodelist(std::vector<std::shared_ptr<Node>> nodes, compi
     };
 }
 
-compiled_result compile_block(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto block = std::get<Block>(n->data);
+compiled_result compile_block(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto block = std::get<Ast::Block>(n->data);
 
     wip.local_variables.push_back({});
     auto ret = compile_nodelist(block.nodes, wip);
@@ -665,8 +668,8 @@ compiled_result compile_block(std::shared_ptr<Node> n, compiler_wip& wip) {
     return ret;
 }
 
-compiled_result compile_if(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto stmt = std::get<IfStmt>(n->data);
+compiled_result compile_if(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto stmt = std::get<Ast::IfStmt>(n->data);
 
     size_t stack_start = wip.next_stack;
     size_t else_label = wip.next_label++;
@@ -729,8 +732,8 @@ compiled_result compile_if(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_dowhile(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto dowhile = std::get<DoWhile>(n->data);
+compiled_result compile_dowhile(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto dowhile = std::get<Ast::DoWhile>(n->data);
 
     size_t stack_start = wip.next_stack;
     size_t start_label = wip.next_label++;
@@ -771,13 +774,13 @@ compiled_result compile_dowhile(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_globalblock(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto block = std::get<GlobalBlock>(n->data);
+compiled_result compile_globalblock(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto block = std::get<Ast::GlobalBlock>(n->data);
     return compile_nodelist(block.nodes, wip);
 }
 
-compiled_result compile_methoddecl(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto method = std::get<MethodDeclaration>(n->data);
+compiled_result compile_methoddecl(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto method = std::get<Ast::MethodDeclaration>(n->data);
     std::cout << "Added method " << method.name << "\n";
 
     wip.method_indices[method.name] = wip.methods.size();
@@ -796,8 +799,8 @@ compiled_result compile_methoddecl(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_methoddef(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto method = std::get<MethodDefinition>(n->data);
+compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto method = std::get<Ast::MethodDefinition>(n->data);
 
     auto& methodinfo = get_method_named(method.name, wip);
 
@@ -807,7 +810,7 @@ compiled_result compile_methoddef(std::shared_ptr<Node> n, compiler_wip& wip) {
 
     size_t param_size = 0;
     auto type = wip.types.get_type(methodinfo.type);
-    auto typedata = std::get<MethodType>(type.type);
+    auto typedata = std::get<Types::MethodType>(type.type);
 
     if (typedata.parameters.size() != method.param_names.size()) {
         throw "Method definition parameters do not match declaration.";
@@ -858,8 +861,8 @@ compiled_result compile_methoddef(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_return(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto ret = std::get<ReturnValue>(n->data);
+compiled_result compile_return(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto ret = std::get<Ast::ReturnValue>(n->data);
     size_t max_used = 0;
 
     if (ret.value) {
@@ -886,8 +889,8 @@ compiled_result compile_return(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_methodparam(std::shared_ptr<Node> n, MethodTypeParameter type, compiler_wip& wip) {
-    auto param = std::get<CallParam>(n->data);
+compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodTypeParameter type, compiler_wip& wip) {
+    auto param = std::get<Ast::CallParam>(n->data);
     // but how do I make sure I append to the END of the stack.
     // if some other step makes the stack even larger, then these values are wrong.
     // call passes the new base ptr which is right at the start
@@ -939,8 +942,8 @@ compiled_result compile_methodparam(std::shared_ptr<Node> n, MethodTypeParameter
     };
 }
 
-compiled_result compile_methodcall(std::shared_ptr<Node> n, compiler_wip& wip) {
-    auto method = std::get<MethodCall>(n->data);
+compiled_result compile_methodcall(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+    auto method = std::get<Ast::MethodCall>(n->data);
 
     size_t max_used = 0;
 
@@ -948,11 +951,11 @@ compiled_result compile_methodcall(std::shared_ptr<Node> n, compiler_wip& wip) {
     max_used = callable.stack_bytes_used;
 
     auto methodtype = wip.types.get_type(callable.type);
-    if (!std::holds_alternative<MethodType>(methodtype.type)) {
+    if (!std::holds_alternative<Types::MethodType>(methodtype.type)) {
         throw "LHS is not a function";
     }
 
-    auto typeinfo = std::get<MethodType>(methodtype.type);
+    auto typeinfo = std::get<Types::MethodType>(methodtype.type);
     // TODO: default params
     if (typeinfo.parameters.size() != method.params.size()) {
         throw "Incorrect number of params";
@@ -1002,59 +1005,59 @@ compiled_result compile_methodcall(std::shared_ptr<Node> n, compiler_wip& wip) {
     };
 }
 
-//compiled_result compile_(std::shared_ptr<Node> n, compiler_wip& wip) {
+//compiled_result compile_(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
 //}
 
-compiled_result compile_node(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
-    if (std::holds_alternative<ConstS32>(n->data)) {
+compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
+    if (std::holds_alternative<Ast::ConstS32>(n->data)) {
         return compile_const_s32(n, wip);
     }
-    else if (std::holds_alternative<ConstF32>(n->data)) {
+    else if (std::holds_alternative<Ast::ConstF32>(n->data)) {
         return compile_const_f32(n, wip);
     }
-    else if (std::holds_alternative<ConstBool>(n->data)) {
+    else if (std::holds_alternative<Ast::ConstBool>(n->data)) {
         return compile_const_bool(n, wip);
     }
-    else if (std::holds_alternative<UnaryOperation>(n->data)) {
+    else if (std::holds_alternative<Ast::UnaryOperation>(n->data)) {
         return compile_unaryop(n, wip, suggested_return);
     }
-    else if (std::holds_alternative<BinaryOperation>(n->data)) {
+    else if (std::holds_alternative<Ast::BinaryOperation>(n->data)) {
         return compile_binop(n, wip, suggested_return);
     }
-    else if (std::holds_alternative<SetOperation>(n->data)) {
+    else if (std::holds_alternative<Ast::SetOperation>(n->data)) {
         return compile_setop(n, wip);
     }
-    else if (std::holds_alternative<Identifier>(n->data)) {
+    else if (std::holds_alternative<Ast::Identifier>(n->data)) {
         return compile_identifier(n, wip);
     }
-    else if (std::holds_alternative<AccessMember>(n->data)) {
+    else if (std::holds_alternative<Ast::AccessMember>(n->data)) {
         return compile_access(n, wip);
     }
-    else if (std::holds_alternative<VariableDeclaration>(n->data)) {
+    else if (std::holds_alternative<Ast::VariableDeclaration>(n->data)) {
         return compile_vardecl(n, wip);
     }
-    else if (std::holds_alternative<Block>(n->data)) {
+    else if (std::holds_alternative<Ast::Block>(n->data)) {
         return compile_block(n, wip);
     }
-    else if (std::holds_alternative<GlobalBlock>(n->data)) {
+    else if (std::holds_alternative<Ast::GlobalBlock>(n->data)) {
         return compile_globalblock(n, wip);
     }
-    else if (std::holds_alternative<IfStmt>(n->data)) {
+    else if (std::holds_alternative<Ast::IfStmt>(n->data)) {
         return compile_if(n, wip);
     }
-    else if (std::holds_alternative<DoWhile>(n->data)) {
+    else if (std::holds_alternative<Ast::DoWhile>(n->data)) {
         return compile_dowhile(n, wip);
     }
-    else if (std::holds_alternative<MethodDeclaration>(n->data)) {
+    else if (std::holds_alternative<Ast::MethodDeclaration>(n->data)) {
         return compile_methoddecl(n, wip);
     }
-    else if (std::holds_alternative<MethodDefinition>(n->data)) {
+    else if (std::holds_alternative<Ast::MethodDefinition>(n->data)) {
         return compile_methoddef(n, wip);
     }
-    else if (std::holds_alternative<ReturnValue>(n->data)) {
+    else if (std::holds_alternative<Ast::ReturnValue>(n->data)) {
         return compile_return(n, wip);
     }
-    else if (std::holds_alternative<MethodCall>(n->data)) {
+    else if (std::holds_alternative<Ast::MethodCall>(n->data)) {
         return compile_methodcall(n, wip);
     }
 
@@ -1062,7 +1065,7 @@ compiled_result compile_node(std::shared_ptr<Node> n, compiler_wip& wip, std::op
 }
 
 void
-generate_bytecode(std::shared_ptr<Node> ast_root, compiler_wip& wip) {
+generate_bytecode(std::shared_ptr<Ast::Node> ast_root, compiler_wip& wip) {
     wip.local_variables.push_back({});
     compile_node(ast_root, wip, {});
 }
@@ -1143,17 +1146,17 @@ print_program(compiler_wip& wip) {
 }
 
 std::optional<std::type_index>
-get_cpp_type(const TypeInfo& type) {
-    if (std::holds_alternative<PrimitiveType>(type.type)) {
-        auto prim = std::get<PrimitiveType>(type.type);
+get_cpp_type(const Types::TypeInfo& type) {
+    if (std::holds_alternative<Types::PrimitiveType>(type.type)) {
+        auto prim = std::get<Types::PrimitiveType>(type.type);
         switch (prim) {
-        case PrimitiveType::boolean:
+        case Types::PrimitiveType::boolean:
             return typeid(bool);
-        case PrimitiveType::empty:
+        case Types::PrimitiveType::empty:
             return typeid(void);
-        case PrimitiveType::s32:
+        case Types::PrimitiveType::s32:
             return typeid(int);
-        case PrimitiveType::f32:
+        case Types::PrimitiveType::f32:
             return typeid(float);
         }
     }
@@ -1164,7 +1167,7 @@ get_cpp_type(const TypeInfo& type) {
 }
 
 std::shared_ptr<Program>
-generate_bytecode(std::shared_ptr<Node> ast_root, const TypeTable& types, const ImportedMethods& imported_methods) {
+generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& types, const ImportedMethods& imported_methods) {
     compiler_wip wip(types, imported_methods);
     generate_bytecode(ast_root, wip);
     link(wip);
@@ -1201,7 +1204,7 @@ generate_bytecode(std::shared_ptr<Node> ast_root, const TypeTable& types, const 
     for (auto& m : wip.methods) {
         p->add_method_addr(m.name, m.param_bytes, m.stack_bytes, m.address);
         
-        auto& t = std::get<MethodType>(wip.types.get_type(m.type).type);
+        auto& t = std::get<Types::MethodType>(wip.types.get_type(m.type).type);
         std::vector<std::type_index> types;
         bool has_all = true;
         auto cpp_type = get_cpp_type(wip.types.get_type(t.return_type));
@@ -1224,4 +1227,7 @@ generate_bytecode(std::shared_ptr<Node> ast_root, const TypeTable& types, const 
     }
 
     return p;
+}
+
+}
 }

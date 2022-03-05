@@ -9,6 +9,9 @@
 #include <variant>
 #include <vector>
 
+namespace MattScript {
+namespace Types {
+
 enum class PrimitiveType: unsigned int {
     empty,
     boolean,
@@ -118,3 +121,6 @@ private:
     std::unordered_map<std::string, TypeInfo> _types;
     std::unordered_map<std::type_index, std::string> _mapped;
 };
+
+} // Types
+} // MattScript

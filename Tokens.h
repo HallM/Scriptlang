@@ -2,6 +2,9 @@
 
 #include <variant>
 
+namespace MattScript {
+namespace Tokens {
+
 struct Position {
     size_t line;
     size_t col;
@@ -70,3 +73,6 @@ public:
     Span span;
     TokenData data;
 };
+
+}
+}

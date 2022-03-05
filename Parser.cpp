@@ -17,22 +17,25 @@
 #include "Tokens.h"
 #include "VectorView.h"
 
-typedef std::shared_ptr<FileNode> FileNodePtr;
-typedef VectorView<std::shared_ptr<Token>> Tokens;
+namespace MattScript {
+namespace Parser {
+
+typedef std::shared_ptr<Ast::FileNode> FileNodePtr;
+typedef VectorView<std::shared_ptr<Tokens::Token>> TokenStream;
 
 struct node_return {
-    std::shared_ptr<Node> node;
+    std::shared_ptr<Ast::Node> node;
 };
 
 struct parser_wip {
-    TypeTable& types;
+    Types::TypeTable& types;
 };
 
 template<typename T>
 void
-eat_token(Tokens& tokens) {
+eat_token(TokenStream& tokens) {
     for (size_t i = 0; i < tokens.size(); i++) {
-        std::shared_ptr<Token> token = tokens.peak();
+        std::shared_ptr<Tokens::Token> token = tokens.peak();
         if (!std::holds_alternative<T>(token->data)) {
             return;
         }
@@ -45,8 +48,8 @@ bool always_true(T v) { return true; }
 
 template<typename T>
 std::optional<T>
-token_if(Tokens& tokens, std::function<bool(T)> cond = &always_true<T>) {
-    TokenData d = tokens.peak()->data;
+token_if(TokenStream& tokens, std::function<bool(T)> cond = &always_true<T>) {
+    Tokens::TokenData d = tokens.peak()->data;
     if (std::holds_alternative<T>(d) && cond(std::get<T>(d))) {
         return std::get<T>(tokens.pull_front()->data);
     }
@@ -55,8 +58,8 @@ token_if(Tokens& tokens, std::function<bool(T)> cond = &always_true<T>) {
 
 template<typename T>
 std::optional<T>
-peek_if(Tokens& tokens, std::function<bool(T)> cond = &always_true<T>) {
-    TokenData d = tokens.peak()->data;
+peek_if(TokenStream& tokens, std::function<bool(T)> cond = &always_true<T>) {
+    Tokens::TokenData d = tokens.peak()->data;
     if (std::holds_alternative<T>(d) && cond(std::get<T>(d))) {
         return std::get<T>(d);
     }
@@ -65,25 +68,25 @@ peek_if(Tokens& tokens, std::function<bool(T)> cond = &always_true<T>) {
 
 template<typename T>
 bool
-is_next(Tokens& tokens, std::function<bool(T)> cond = &always_true<T>) {
+is_next(TokenStream& tokens, std::function<bool(T)> cond = &always_true<T>) {
     return peek_if<T>(tokens, cond).has_value();
 }
 
 void
-eat_whitespace(Tokens& tokens) {
-    return eat_token<SpaceToken>(tokens);
+eat_whitespace(TokenStream& tokens) {
+    return eat_token<Tokens::SpaceToken>(tokens);
 }
 
 void
-eat_newlines(Tokens& tokens) {
-    return eat_token<NewlineToken>(tokens);
+eat_newlines(TokenStream& tokens) {
+    return eat_token<Tokens::NewlineToken>(tokens);
 }
 
 void
-eat_anyspace(Tokens& tokens) {
+eat_anyspace(TokenStream& tokens) {
     for (size_t i = 0; i < tokens.size(); i++) {
-        std::shared_ptr<Token> token = tokens.peak();
-        if (!std::holds_alternative<SpaceToken>(token->data) && !std::holds_alternative<NewlineToken>(token->data)) {
+        std::shared_ptr<Tokens::Token> token = tokens.peak();
+        if (!std::holds_alternative<Tokens::SpaceToken>(token->data) && !std::holds_alternative<Tokens::NewlineToken>(token->data)) {
             return;
         }
         tokens.pull_front();
@@ -91,29 +94,29 @@ eat_anyspace(Tokens& tokens) {
 }
 
 bool
-is_operator(std::string want, OperatorToken t) {
+is_operator(std::string want, Tokens::OperatorToken t) {
     return want == t.oper;
 }
 bool
-is_keyword(std::string want, KeywordToken t) {
+is_keyword(std::string want, Tokens::KeywordToken t) {
     return want == t.keyword;
 }
 
 // some forward decls
-node_return parse_block(FileNodePtr root, Tokens& tokens, bool is_global, parser_wip& wip);
+node_return parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& wip);
 
 /*
 node_return
-parse_expressionstmt(FileNodePtr root, Tokens& tokens) {
+parse_expressionstmt(FileNodePtr root, TokenStream& tokens) {
 }
 */
 
 bool
-is_simple_assignment(OperatorToken token) {
+is_simple_assignment(Tokens::OperatorToken token) {
     return token.oper == "=";
 }
 bool
-is_compound_assignment(OperatorToken token) {
+is_compound_assignment(Tokens::OperatorToken token) {
     if (token.oper == "+=") { return true; }
     if (token.oper == "-=") { return true; }
     if (token.oper == "*=") { return true; }
@@ -124,7 +127,7 @@ is_compound_assignment(OperatorToken token) {
 }
 
 std::pair<int,int>
-binding_power(OperatorToken token) {
+binding_power(Tokens::OperatorToken token) {
     if (token.oper == "+" || token.oper == "-") {
         return {23, 24};
     }
@@ -149,79 +152,79 @@ binding_power(OperatorToken token) {
 
     return {-1, -1};
 }
-BinaryOps
-binary_operator(OperatorToken token) {
-    std::unordered_map<std::string, BinaryOps> ops = {
-        {"+", BinaryOps::Add},
-        {"-", BinaryOps::Subtract},
-        {"*", BinaryOps::Multiply},
-        {"/", BinaryOps::Divide},
-        {"%", BinaryOps::Modulo},
+Ast::BinaryOps
+binary_operator(Tokens::OperatorToken token) {
+    std::unordered_map<std::string, Ast::BinaryOps> ops = {
+        {"+", Ast::BinaryOps::Add},
+        {"-", Ast::BinaryOps::Subtract},
+        {"*", Ast::BinaryOps::Multiply},
+        {"/", Ast::BinaryOps::Divide},
+        {"%", Ast::BinaryOps::Modulo},
 
-        {"<", BinaryOps::Less},
-        {"<=", BinaryOps::LessEqual},
-        {">", BinaryOps::Greater},
-        {">=", BinaryOps::GreaterEqual},
-        {"==", BinaryOps::Eq},
-        {"!=", BinaryOps::NotEq},
+        {"<", Ast::BinaryOps::Less},
+        {"<=", Ast::BinaryOps::LessEqual},
+        {">", Ast::BinaryOps::Greater},
+        {">=", Ast::BinaryOps::GreaterEqual},
+        {"==", Ast::BinaryOps::Eq},
+        {"!=", Ast::BinaryOps::NotEq},
 
-        {"+=", BinaryOps::Add},
-        {"-=", BinaryOps::Subtract},
-        {"*=", BinaryOps::Multiply},
-        {"/=", BinaryOps::Divide},
-        {"%=", BinaryOps::Modulo},
+        {"+=", Ast::BinaryOps::Add},
+        {"-=", Ast::BinaryOps::Subtract},
+        {"*=", Ast::BinaryOps::Multiply},
+        {"/=", Ast::BinaryOps::Divide},
+        {"%=", Ast::BinaryOps::Modulo},
     };
 
     return ops.at(token.oper);
 }
 
 std::string
-parse_type(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
-    auto id = std::get<IdentifierToken>(tokens.pull_front()->data).identifier;
+parse_type(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
+    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
     if (id == "ref") {
-        id = "ref " + std::get<IdentifierToken>(tokens.pull_front()->data).identifier;
+        id = "ref " + std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
     }
     return id;
 }
 
 node_return
-parse_identifier(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
-    auto id = std::get<IdentifierToken>(tokens.pull_front()->data).identifier;
+parse_identifier(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
+    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
 
-    std::shared_ptr<Node> node = std::make_shared<Node>();
-    node->data = Identifier { id };
+    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    node->data = Ast::Identifier { id };
     return {node};
 }
 
 node_return
-parse_let(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
-    auto id = std::get<IdentifierToken>(tokens.pull_front()->data).identifier;
+parse_let(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
+    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
 
-    if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
+    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
         throw "Type of a variable must be specified";
     }
     auto type = parse_type(root, tokens, wip);
 
-    std::shared_ptr<Node> node = std::make_shared<Node>();
-    node->data = VariableDeclaration { id, type };
+    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    node->data = Ast::VariableDeclaration { id, type };
     return {node};
 }
 
 node_return
-parse_const(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
-    if (auto v = token_if<S32Token>(tokens)) {
-        std::shared_ptr<Node> node = std::make_shared<Node>();
-        node->data = ConstS32 { v.value().number };
+parse_const(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
+    if (auto v = token_if<Tokens::S32Token>(tokens)) {
+        std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+        node->data = Ast::ConstS32 { v.value().number };
         return {node};
     }
-    if (auto v = token_if<F32Token>(tokens)) {
-        std::shared_ptr<Node> node = std::make_shared<Node>();
-        node->data = ConstF32 { v.value().number };
+    if (auto v = token_if<Tokens::F32Token>(tokens)) {
+        std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+        node->data = Ast::ConstF32 { v.value().number };
         return {node};
     }
-    if (auto v = token_if<BoolToken>(tokens)) {
-        std::shared_ptr<Node> node = std::make_shared<Node>();
-        node->data = ConstBool { v.value().value };
+    if (auto v = token_if<Tokens::BoolToken>(tokens)) {
+        std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+        node->data = Ast::ConstBool { v.value().value };
         return {node};
     }
 
@@ -229,24 +232,24 @@ parse_const(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
 }
 
 node_return
-parse_expression(FileNodePtr root, Tokens& tokens, parser_wip& wip, int min_power) {
+parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min_power) {
     eat_whitespace(tokens);
 
     std::cout << "Expr\n";
-    std::shared_ptr<Node> lhs;
-    if (is_next<IdentifierToken>(tokens)) {
+    std::shared_ptr<Ast::Node> lhs;
+    if (is_next<Tokens::IdentifierToken>(tokens)) {
         std::cout << "identifier\n";
         lhs = parse_identifier(root, tokens, wip).node;
     }
-    else if (is_next<S32Token>(tokens) || is_next<F32Token>(tokens) || is_next<BoolToken>(tokens)) {
+    else if (is_next<Tokens::S32Token>(tokens) || is_next<Tokens::F32Token>(tokens) || is_next<Tokens::BoolToken>(tokens)) {
         std::cout << "const\n";
         lhs = parse_const(root, tokens, wip).node;
     }
-    else if (is_next<OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
+    else if (is_next<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
         tokens.pull_front();
         std::cout << "subexpr\n";
         lhs = parse_expression(root, tokens, wip, 0).node;
-        if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
+        if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
             throw "Missing ) to end the expression";
         }
     }
@@ -258,33 +261,33 @@ parse_expression(FileNodePtr root, Tokens& tokens, parser_wip& wip, int min_powe
     while (!tokens.empty()) {
         eat_whitespace(tokens);
 
-        if (token_if<OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
+        if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
             std::cout << "Call method\n";
-            std::vector<std::shared_ptr<Node>> params;
+            std::vector<std::shared_ptr<Ast::Node>> params;
 
-            if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
+            if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
                 while (!tokens.empty()) {
                     std::cout << "get param\n";
                     auto paramexpr = parse_expression(root, tokens, wip, 0).node;
-                    std::shared_ptr<Node> pnode = std::make_shared<Node>();
-                    pnode->data = CallParam { paramexpr };
+                    std::shared_ptr<Ast::Node> pnode = std::make_shared<Ast::Node>();
+                    pnode->data = Ast::CallParam { paramexpr };
                     params.push_back(pnode);
                 
-                    if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ","))) {
+                    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ","))) {
                         break;
                     }
                 }
-                if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
+                if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
                     throw "function call did not end in )";
                 }
             }
 
-            std::shared_ptr<Node> callnode = std::make_shared<Node>();
-            callnode->data = MethodCall { lhs, params };
+            std::shared_ptr<Ast::Node> callnode = std::make_shared<Ast::Node>();
+            callnode->data = Ast::MethodCall { lhs, params };
             lhs = callnode;
         }
 
-        auto maybe = peek_if<OperatorToken>(tokens);
+        auto maybe = peek_if<Tokens::OperatorToken>(tokens);
         if (!maybe) {
             break;
         }
@@ -297,21 +300,21 @@ parse_expression(FileNodePtr root, Tokens& tokens, parser_wip& wip, int min_powe
         tokens.pull_front();
         eat_whitespace(tokens);
 
-        std::shared_ptr<Node> rhs = parse_expression(root, tokens, wip, rpb).node;
+        std::shared_ptr<Ast::Node> rhs = parse_expression(root, tokens, wip, rpb).node;
         eat_whitespace(tokens);
 
-        std::shared_ptr<Node> node = std::make_shared<Node>();
+        std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
         if (token.oper == ".") {
-            node->data = AccessMember { lhs, rhs };
+            node->data = Ast::AccessMember { lhs, rhs };
         }
         else if (is_simple_assignment(token)) {
-            node->data = SetOperation { {}, lhs, rhs };
+            node->data = Ast::SetOperation { {}, lhs, rhs };
         }
         else if (is_compound_assignment(token)) {
-            node->data = SetOperation { binary_operator(token), lhs, rhs };
+            node->data = Ast::SetOperation { binary_operator(token), lhs, rhs };
         }
         else {
-            node->data = BinaryOperation { binary_operator(token), lhs, rhs };
+            node->data = Ast::BinaryOperation { binary_operator(token), lhs, rhs };
         }
         lhs = node;
     }
@@ -320,20 +323,20 @@ parse_expression(FileNodePtr root, Tokens& tokens, parser_wip& wip, int min_powe
 }
 
 node_return
-parse_if(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
+parse_if(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     // if condexpr block (else? block|if)
     auto condition = parse_expression(root, tokens, wip, 0).node;
-    if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
+    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
         throw "Syntax error, expected block for if statement";
     }
     auto then = parse_block(root, tokens, false, wip).node;
 
-    std::optional<std::shared_ptr<Node>> elsevalue = {};
-    if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "else"))) {
-        if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "if"))) {
+    std::optional<std::shared_ptr<Ast::Node>> elsevalue = {};
+    if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "else"))) {
+        if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "if"))) {
             elsevalue = parse_if(root, tokens, wip).node;
         }
-        else if (token_if<OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
+        else if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
             elsevalue = parse_block(root, tokens, false, wip).node;
         }
         else {
@@ -341,41 +344,41 @@ parse_if(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
         }
     }
 
-    std::shared_ptr<Node> node = std::make_shared<Node>();
-    node->data = IfStmt { condition, then, elsevalue };
+    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    node->data = Ast::IfStmt { condition, then, elsevalue };
     return {node};
 }
 
 node_return
-parse_for(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
+parse_for(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     // for expr; expr; expr {}
     // for expr { maybe later
 
     auto start = parse_expression(root, tokens, wip, 0).node;
 
-    if (token_if<OperatorToken>(tokens, std::bind_front(is_operator, ";"))) {
+    if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ";"))) {
         auto condition = parse_expression(root, tokens, wip, 0).node;
 
-        if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ";"))) {
+        if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ";"))) {
             throw "Syntax error, expected ; between init, condition, and iteration of a for loop";
         }
 
         auto iteration = parse_expression(root, tokens, wip, 0).node;
 
-        if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
+        if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
             throw "Syntax error, expected block for for statement";
         }
         auto dothething = parse_block(root, tokens, false, wip).node;
-        std::get<Block>(dothething->data).nodes.push_back(iteration);
+        std::get<Ast::Block>(dothething->data).nodes.push_back(iteration);
 
-        std::shared_ptr<Node> dowhile = std::make_shared<Node>();
-        dowhile->data = DoWhile { dothething, condition };
+        std::shared_ptr<Ast::Node> dowhile = std::make_shared<Ast::Node>();
+        dowhile->data = Ast::DoWhile { dothething, condition };
         
-        std::shared_ptr<Node> startcond = std::make_shared<Node>();
-        startcond->data = IfStmt { condition, dowhile, {} };
+        std::shared_ptr<Ast::Node> startcond = std::make_shared<Ast::Node>();
+        startcond->data = Ast::IfStmt { condition, dowhile, {} };
 
-        std::shared_ptr<Node> surround = std::make_shared<Node>();
-        surround->data = Block { { start, startcond } };
+        std::shared_ptr<Ast::Node> surround = std::make_shared<Ast::Node>();
+        surround->data = Ast::Block { { start, startcond } };
 
         return {surround};
     }
@@ -384,62 +387,62 @@ parse_for(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
 }
 
 node_return
-parse_return(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
+parse_return(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     eat_whitespace(tokens);
-    std::shared_ptr<Node> ret = parse_expression(root, tokens, wip, 0).node;
-    std::shared_ptr<Node> node = std::make_shared<Node>();
-    node->data = ReturnValue { ret };
+    std::shared_ptr<Ast::Node> ret = parse_expression(root, tokens, wip, 0).node;
+    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    node->data = Ast::ReturnValue { ret };
     return {node};
 }
 
 node_return
-parse_method_decl(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
+parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     //"fn", fn, ws, identifier, ws?, "(", param list ")" ws? ":" NL parse block
     eat_whitespace(tokens);
 
-    auto ident = std::get<IdentifierToken>(tokens.pull_front()->data).identifier;
+    auto ident = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
     eat_whitespace(tokens);
 
-    if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
+    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
         throw "Syntax error, expected ( after identifier for function decl/def";
     }
     eat_anyspace(tokens);
 
     std::vector<std::string> param_names;
-    std::vector<MethodTypeParameter> param_types;
+    std::vector<Types::MethodTypeParameter> param_types;
 
-    auto param_token = token_if<IdentifierToken>(tokens);
+    auto param_token = token_if<Tokens::IdentifierToken>(tokens);
     while (param_token) {
         auto param_name = param_token.value().identifier;
         eat_whitespace(tokens);
         param_names.push_back(param_name);
         std::cout << "Read param " << param_name << "\n";
 
-        if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
+        if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
             throw "Syntax error, expected : between parameter name and type";
         }
         eat_whitespace(tokens);
 
         auto param_type = parse_type(root, tokens, wip);
         eat_whitespace(tokens);
-        param_types.push_back(MethodTypeParameter{param_type});
+        param_types.push_back(Types::MethodTypeParameter{param_type});
 
-        if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ","))) {
+        if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ","))) {
             break;
         }
         eat_whitespace(tokens);
 
-        param_token = token_if<IdentifierToken>(tokens);
+        param_token = token_if<Tokens::IdentifierToken>(tokens);
     }
     eat_whitespace(tokens);
 
-    if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
+    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
         throw "Syntax error, expected ) after parameter list for function decl/def";
     }
     eat_whitespace(tokens);
 
     std::string ret_type = "void";
-    if (token_if<OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
+    if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
         eat_whitespace(tokens);
         ret_type = parse_type(root, tokens, wip);
 
@@ -449,15 +452,15 @@ parse_method_decl(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
 
     std::string method_type = wip.types.add_method(ret_type, param_types);
 
-    if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
+    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
         throw "Syntax error, expected block to start method";
     }
     eat_anyspace(tokens);
 
     auto block = parse_block(root, tokens, false, wip);
 
-    std::shared_ptr<Node> node = std::make_shared<Node>();
-    node->data = MethodDefinition{
+    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    node->data = Ast::MethodDefinition{
         ident,
         method_type,
         param_names,
@@ -468,7 +471,7 @@ parse_method_decl(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
 }
 
 node_return
-parse_statement(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
+parse_statement(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     std::cout << "Start statement" << tokens.size() << "\n";
 
     // keyword:
@@ -483,19 +486,19 @@ parse_statement(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
 
     eat_newlines(tokens);
 
-    if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "fn"))) {
+    if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "fn"))) {
         return parse_method_decl(root, tokens, wip);
     }
-    else if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "return"))) {
+    else if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "return"))) {
         return parse_return(root, tokens, wip);
     }
-    else if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "if"))) {
+    else if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "if"))) {
         return parse_if(root, tokens, wip);
     }
-    else if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "for"))) {
+    else if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "for"))) {
         return parse_for(root, tokens, wip);
     }
-    else if (token_if<KeywordToken>(tokens, std::bind_front(is_keyword, "let"))) {
+    else if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "let"))) {
         return parse_let(root, tokens, wip);
     }
     else {
@@ -506,31 +509,30 @@ parse_statement(FileNodePtr root, Tokens& tokens, parser_wip& wip) {
 }
 
 node_return
-parse_block(FileNodePtr root, Tokens& tokens, bool is_global, parser_wip& wip) {
-    std::vector<std::shared_ptr<Node>> vardefs;
-    std::vector<std::shared_ptr<Node>> fndefs;
-    std::vector<std::shared_ptr<Node>> statements;
+parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& wip) {
+    std::vector<std::shared_ptr<Ast::Node>> vardefs;
+    std::vector<std::shared_ptr<Ast::Node>> fndefs;
+    std::vector<std::shared_ptr<Ast::Node>> statements;
 
     std::cout << "Start block " << tokens.size() << "\n";
     while (!tokens.empty()) {
         // TODO need to validate that blocks end
-        if (peek_if<OperatorToken>(tokens, std::bind_front(is_operator, "}"))) {
+        if (peek_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "}"))) {
             break;
         }
 
         auto statement = parse_statement(root, tokens, wip);
 
-        if (std::holds_alternative<VariableDeclaration>(statement.node->data)) {
+        if (std::holds_alternative<Ast::VariableDeclaration>(statement.node->data)) {
             vardefs.push_back(statement.node);
         }
-        else if (std::holds_alternative<MethodDefinition>(statement.node->data)) {
+        else if (std::holds_alternative<Ast::MethodDefinition>(statement.node->data)) {
             statements.push_back(statement.node);
 
-            std::shared_ptr<Node> declnode = std::make_shared<Node>();
-            std::cout << "Added method " << std::get<MethodDefinition>(statement.node->data).name << " : " << std::get<MethodDefinition>(statement.node->data).type << "\n";
-            declnode->data = MethodDeclaration{
-                std::get<MethodDefinition>(statement.node->data).name,
-                std::get<MethodDefinition>(statement.node->data).type
+            std::shared_ptr<Ast::Node> declnode = std::make_shared<Ast::Node>();
+            declnode->data = Ast::MethodDeclaration{
+                std::get<Ast::MethodDefinition>(statement.node->data).name,
+                std::get<Ast::MethodDefinition>(statement.node->data).type
             };
             fndefs.push_back(declnode);
         }
@@ -541,39 +543,39 @@ parse_block(FileNodePtr root, Tokens& tokens, bool is_global, parser_wip& wip) {
     }
 
     if (!is_global) {
-        if (!token_if<OperatorToken>(tokens, std::bind_front(is_operator, "}"))) {
+        if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "}"))) {
             throw "Block must end in a }";
         }
     }
 
-    std::vector<std::shared_ptr<Node>> all;
+    std::vector<std::shared_ptr<Ast::Node>> all;
     std::copy(vardefs.begin(), vardefs.end(), std::back_inserter(all));
     std::copy(fndefs.begin(), fndefs.end(), std::back_inserter(all));
     std::copy(statements.begin(), statements.end(), std::back_inserter(all));
 
     std::cout << "Block has " << all.size() << "\n";
 
-    std::shared_ptr<Node> n;
+    std::shared_ptr<Ast::Node> n;
     if (is_global) {
-        n = std::make_shared<Node>();
-        n->data = GlobalBlock{ all };
+        n = std::make_shared<Ast::Node>();
+        n->data = Ast::GlobalBlock{ all };
     }
     else {
-        n = std::make_shared<Node>();
-        n->data = Block{ all };
+        n = std::make_shared<Ast::Node>();
+        n->data = Ast::Block{ all };
     }
 
     return {n};
 }
 
-std::shared_ptr<FileNode>
-parse_to_ast(std::string file_name, std::vector<std::shared_ptr<Token>> tokens, TypeTable& types) {
-    Tokens view = VectorView<std::shared_ptr<Token>>(tokens);
+std::shared_ptr<Ast::FileNode>
+parse_to_ast(std::string file_name, std::vector<std::shared_ptr<Tokens::Token>> tokens, Types::TypeTable& types) {
+    TokenStream view = VectorView<std::shared_ptr<Tokens::Token>>(tokens);
     parser_wip wip = {
         types
     };
 
-    FileNodePtr file = std::make_shared<FileNode>();
+    FileNodePtr file = std::make_shared<Ast::FileNode>();
     file->filename = file_name;
 
     auto ret = parse_block(file, view, true, wip);
@@ -583,4 +585,7 @@ parse_to_ast(std::string file_name, std::vector<std::shared_ptr<Token>> tokens, 
     file->root = ret.node;
 
     return file;
+}
+
+}
 }

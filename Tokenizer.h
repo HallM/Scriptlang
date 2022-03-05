@@ -7,4 +7,10 @@
 
 #include "Tokens.h"
 
-std::vector<std::shared_ptr<Token>> tokenize_string(std::string contents);
+namespace MattScript {
+namespace Tokenizer {
+
+std::vector<std::shared_ptr<Tokens::Token>> tokenize_string(std::string contents);
+
+}
+}

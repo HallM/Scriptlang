@@ -12,6 +12,9 @@
 
 #include "VMFFI.h"
 
+namespace MattScript {
+namespace Types {
+
 TypeTable::TypeTable() {
     _types["void"] = TypeInfo{"void", {}, 0, PrimitiveType::empty, typeid(void)};
     _types["bool"] = TypeInfo{"bool", {}, runtimesizeof<bool>(), PrimitiveType::boolean, typeid(bool)};
@@ -103,4 +106,7 @@ TypeTable::add_struct(std::string type_name, std::vector<StructTypeMember> membe
         {}
     };
     return type_name;
+}
+
+}
 }

@@ -11,11 +11,15 @@
 #include "Tokens.h"
 #include "Types.h"
 
+namespace MattScript {
+
 Compiler::Compiler() {}
 
 std::shared_ptr<Program>
 Compiler::compile(std::string filename, std::string contents) {
-    auto tokens = tokenize_string(contents);
-    auto ast = parse_to_ast("test.wut", tokens, _types);
-    return generate_bytecode(ast->root, _types, _methods);
+    auto tokens = Tokenizer::tokenize_string(contents);
+    auto ast = Parser::parse_to_ast("test.wut", tokens, _types);
+    return Generator::generate_bytecode(ast->root, _types, _methods);
+}
+
 }

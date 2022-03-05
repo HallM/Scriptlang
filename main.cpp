@@ -51,7 +51,7 @@ compile_code_test() {
         (std::istreambuf_iterator<char>())
     );
 
-    Compiler compiler;
+    MattScript::Compiler compiler;
 
     auto pointbuilder = compiler.build_struct<Point2f>("Point2f");
     pointbuilder.add_member<float>("x", offsetof(Point2f, x));

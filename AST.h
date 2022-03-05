@@ -11,6 +11,9 @@
 #include "Types.h"
 #include "VMFFI.h"
 
+namespace MattScript {
+namespace Ast {
+
 // Tokenizer takes file contents (string) and produces list of tokens
 // Parser takes tokens and produces a typed AST along with some metadata (what methods/consts exist)
 // Compiler takes the AST
@@ -185,3 +188,6 @@ struct FileNode {
     std::shared_ptr<Node> root;
     std::vector<std::shared_ptr<Node>> nodes;
 };
+
+} // Ast
+} // MattScript
