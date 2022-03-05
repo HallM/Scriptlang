@@ -457,7 +457,6 @@ compiled_result compile_vardecl(std::shared_ptr<Node> n, compiler_wip& wip) {
     return reserve_local(decl.name, decl.type, wip);
 }
 
-
 compiled_result compile_unaryop(std::shared_ptr<Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     auto opnode = std::get<UnaryOperation>(n->data);
     size_t stack = 0;
@@ -508,10 +507,6 @@ compiled_result compile_unaryop(std::shared_ptr<Node> n, compiler_wip& wip, std:
         total_used
     };
 }
-
-
-
-
 
 compiled_result compile_shared_binop(std::shared_ptr<Node> lhs, std::shared_ptr<Node> rhs, BinaryOps operation, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     // TODO: reduce temporary/stack usage

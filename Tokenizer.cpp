@@ -45,6 +45,7 @@ try_keyword(std::string line, Position start) {
         "return",
         "break",
         "else",
+        "let",
         "for",
         "fn",
         "if",
@@ -98,6 +99,7 @@ try_operator(std::string line, Position start) {
         "|=",
         "&=",
         "^=",
+        "::",
         "!",
         "<",
         ">",
@@ -117,6 +119,7 @@ try_operator(std::string line, Position start) {
         "[",
         "]",
         ":",
+        ";",
         "=",
         "."
     };
@@ -245,16 +248,18 @@ tokenize_string(std::string contents) {
                 std::cerr << line_num << " " << col << " " << line << "\n";
                 throw "Syntax error, no token";
             }
-            if (std::holds_alternative<SpaceToken>(longest.value()->data) && longest.value()->span.start.col == 0 && longest.value()->span.end.col == line.length()) {
-                // a space that takes up the entire new line is just eaten up.
-                break;
-            }
+            //if (std::holds_alternative<SpaceToken>(longest.value()->data) && longest.value()->span.start.col == 0 && longest.value()->span.end.col == line.length()) {
+            //    // a space that takes up the entire new line is just eaten up.
+            //    break;
+            //}
             if (std::holds_alternative<CommentToken>(longest.value()->data)) {
                 // just eat the entire comment...
                 break;
             }
 
-            tokens.push_back(longest.value());
+            if (!std::holds_alternative<SpaceToken>(longest.value()->data)) {
+                tokens.push_back(longest.value());
+            }
             col = longest.value()->span.end.col;
         }
         while (tokens.size() > 0 && std::holds_alternative<SpaceToken>(tokens[tokens.size() - 1]->data)) {

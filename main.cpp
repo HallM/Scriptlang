@@ -3,6 +3,7 @@
 
 #include <chrono>
 
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -27,6 +28,14 @@ struct Point2f {
 void print_point2f(Point2f* p) {
     std::cout << "Point is: ";
     std::cout << p->x << ", " << p->y << "\n";
+}
+void print_s32(int x) {
+    std::cout << "s32: ";
+    std::cout << x << "\n";
+}
+void print_f32(float x) {
+    std::cout << "f32: ";
+    std::cout << x << "\n";
 }
 
 // the lua application including compilation was 1 second 249ms (0.0031ms per loop)
@@ -261,21 +270,82 @@ void
 compile_code_test() {
     std::cout << "\n++++++++\n";
 
-    std::string code =
-        "fn average(x: f32, y: f32): f32 {\n"
-        "  return (x + y) / 2.0\n"
-        "}";
+    auto m_beg = std::chrono::steady_clock::now();
+
+    std::ifstream infile("test.wut");
+    std::string contents(
+        (std::istreambuf_iterator<char>(infile)),
+        (std::istreambuf_iterator<char>())
+    );
+    std::cout << contents << "\n";
 
     TypeTable types;
-    auto tokens = tokenize_string(code);
-    auto ast = parse_to_ast("code.wut", tokens, types);
-    auto program = compile_ast(ast->root, types, {});
+    types.imported_struct_type<Point2f>("Point2f", {
+        types.imported_struct_member<float>("x", offsetof(Point2f, x)),
+        types.imported_struct_member<float>("y", offsetof(Point2f, y)),
+    });
+    types.add_method("void", { {"ref Point2f"} });
+    types.add_method("void", { {"s32"} });
+    types.add_method("void", { {"f32"} });
+
+    BuiltinRunnable<void, Point2f*> printpoint_runnable(print_point2f);
+    BuiltinRunnable<void, int> prints32_runnable(print_s32);
+    BuiltinRunnable<void, float> printf32_runnable(print_f32);
+    std::vector<ImportedMethod> imported_methods = {
+        ImportedMethod{
+            "print_point2f",
+            &printpoint_runnable,
+            "void(ref Point2f)",
+            typeid(void),
+            { typeid(Point2f*) }
+        },
+        ImportedMethod{
+            "print_s32",
+            &prints32_runnable,
+            "void(s32)",
+            typeid(void),
+            { typeid(int) }
+        },
+        ImportedMethod{
+            "print_f32",
+            &printf32_runnable,
+            "void(f32)",
+            typeid(void),
+            { typeid(float) }
+        }
+    };
+
+    auto tokens = tokenize_string(contents);
+    auto ast = parse_to_ast("test.wut", tokens, types);
+    auto program = compile_ast(ast->root, types, imported_methods);
+
+    auto dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
+    std::cout << "compile time: " << dur << "s\n";
+
+    std::cout << "compiled size: " << program->get_code().size() << "\n";
+
+    m_beg = std::chrono::steady_clock::now();
 
     auto scriptaverage = program->method<float,float,float>("average");
+    auto scriptmain = program->method<void>("main");
+
     std::shared_ptr<VMFixedStack> globals = program->generate_state();
+
     VM* vm = new VM(VMSTACK_PAGE_SIZE);
+
+    scriptmain(*vm, *globals);
+    std::cout << "checking N: " << globals->cvalue<float>(program->get_global_address("N")) << "\n";
+
+    dur = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(std::chrono::steady_clock::now() - m_beg).count();
+    std::cout << "run time: " << dur << "s\n";
+
     float avg = scriptaverage(*vm, *globals, 3, 2);
-    std::cout << "checking avg: " << avg << "\n";
+    std::cout << "-----\nchecking avg: " << avg << "\n";
+
+    std::cout << "-----\ntry test:\n";
+    auto scripttest = program->method<void, Point2f*>("test");
+    Point2f p = {1.23f, 98.76f};
+    scripttest(*vm, *globals, &p);
 }
 
 int main() {
