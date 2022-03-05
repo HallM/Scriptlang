@@ -22,7 +22,7 @@ Program::generate_state() {
 }
 
 void
-Program::add_builtin(std::string name, IRunnable* runnable) {
+Program::add_builtin(std::string name, std::shared_ptr<IRunnable> runnable) {
     size_t addr = _builtins.size();
     _builtins.push_back(runnable);
     _builtin_addresses[name] = addr;
@@ -96,10 +96,10 @@ Program::globals_size() const {
     return _globals_size;
 }
 
-const std::vector<IRunnable*>&
-Program::get_builtins() const {
-    return _builtins;
-}
+//const std::vector<IRunnable*>&
+//Program::get_builtins() const {
+//    return _builtins;
+//}
 
 const std::vector<Opcode>&
 Program::get_code() const {
@@ -116,7 +116,7 @@ Program::constants_table() const {
     return _constants;
 }
 
-const IRunnable*
+const std::shared_ptr<IRunnable>
 Program::get_builtin_runnable(size_t addr) const {
     return _builtins.at(addr);
 }

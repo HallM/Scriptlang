@@ -21,11 +21,9 @@
 //    5. generate a to-link table
 // Linker phase will link the addresses in bytecode to produce a Program
 
-
-
 struct ImportedMethod {
     std::string name;
-    IRunnable* runnable;
+    std::shared_ptr<IRunnable> runnable;
     std::string type;
     std::type_index ret_type;
     std::vector<std::type_index> param_types;

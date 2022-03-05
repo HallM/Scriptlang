@@ -174,10 +174,10 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
             size_t address = size_t(program.get_method_runnable(offset));
             _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
         }
-        else {
-            size_t address = size_t(program.get_builtin_runnable(offset));
-            _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
-        }
+        //else {
+        //    size_t address = size_t(program.get_builtin_runnable(offset));
+        //    _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
+        //}
         break;
     }
     case Bytecode::Dereference: {
@@ -393,10 +393,11 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
                 r = program.get_method_runnable(offset);
                 r->invoke(*this, data, fn_base);
                 break;
-            case 1:
-                r = program.get_builtin_runnable(offset);
-                r->invoke(*this, data, fn_base);
+            case 1: {
+                auto v = program.get_builtin_runnable(offset);
+                v->invoke(*this, data, fn_base);
                 break;
+            }
             case 2:
                 _precall(fn_base, stack);
                 _instruction_index += offset;

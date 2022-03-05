@@ -100,7 +100,7 @@ public:
         *_constants.at<T>(loc) = value;
         _constant_addresses[name] = loc;
     }
-    void add_builtin(std::string name, IRunnable* runnable);
+    void add_builtin(std::string name, std::shared_ptr<IRunnable> runnable);
     void add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code);
 
     void add_code(std::vector<Opcode> code);
@@ -117,7 +117,7 @@ public:
     const MethodMetadata& get_method_metadata(size_t address) const;
 
     size_t globals_size() const;
-    const std::vector<IRunnable*>& get_builtins() const;
+    // const std::vector<std::shared_ptr<IRunnable>>& get_builtins() const;
     const std::vector<Opcode>& get_code() const;
 
     const Opcode& get_opcode(size_t index) const;
@@ -128,12 +128,12 @@ public:
     }
     const VMFixedStack& constants_table() const;
 
-    const IRunnable* get_builtin_runnable(size_t addr) const;
+    const std::shared_ptr<IRunnable> get_builtin_runnable(size_t addr) const;
     const IRunnable* get_method_runnable(size_t addr) const;
 
 private:
     size_t _globals_size;
-    std::vector<IRunnable*> _builtins;
+    std::vector<std::shared_ptr<IRunnable>> _builtins;
     std::vector<Opcode> _code;
     VMFixedStack _constants;
     //std::unordered_map<size_t, IRunnable*> _methods;
