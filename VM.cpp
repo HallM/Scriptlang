@@ -171,13 +171,13 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         const size_t page = address_page(oc.p1);
         const size_t offset = address_offset(oc.p1);
         if (page == 0) {
-            size_t address = size_t(program.get_method_runnable(offset));
+            size_t address = size_t(program.get_method_runnable(offset).get());
             _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
         }
-        //else {
-        //    size_t address = size_t(program.get_builtin_runnable(offset));
-        //    _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
-        //}
+        else {
+            size_t address = size_t(program.get_builtin_runnable(offset).get());
+            _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
+        }
         break;
     }
     case Bytecode::Dereference: {
@@ -383,8 +383,8 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
 
     case Bytecode::Call: {
         size_t fn_base = _base + address_offset(oc.p2);
-        const IRunnable* r = nullptr;
         if (oc.l1 == LocMemoryDirect) {
+            std::shared_ptr<IRunnable> r;
             const size_t page = address_page(oc.p1);
             const size_t offset = address_offset(oc.p1);
             size_t stack = oc.p3;
@@ -394,8 +394,8 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
                 r->invoke(*this, data, fn_base);
                 break;
             case 1: {
-                auto v = program.get_builtin_runnable(offset);
-                v->invoke(*this, data, fn_base);
+                r = program.get_builtin_runnable(offset);
+                r->invoke(*this, data, fn_base);
                 break;
             }
             case 2:
@@ -410,8 +410,8 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
             }
         }
         else {
-            r = _table_value<IRunnable*>(constants, globals, oc.p1);
-            r->invoke(*this, data, fn_base);
+            auto runnable = _table_value<IRunnable*>(constants, globals, oc.p1);
+            runnable->invoke(*this, data, fn_base);
         }
         break;
     }

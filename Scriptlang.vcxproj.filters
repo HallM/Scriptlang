@@ -115,8 +115,5 @@
     <None Include=".gitignore">
       <Filter>gitstuff</Filter>
     </None>
-    <None Include="test.wut">
-      <Filter>Resource Files</Filter>
-    </None>
   </ItemGroup>
 </Project>

@@ -4,11 +4,7 @@
 #include <iterator>
 
 Program::Program(size_t const_bytes) : _globals_size(0), _constants(const_bytes) {}
-Program::~Program() {
-    for (auto& it : _methods) {
-        delete it;
-    }
-}
+Program::~Program() {}
 
 void
 Program::register_method(std::string name, std::vector<std::type_index> types) {
@@ -50,7 +46,7 @@ void
 Program::add_method_addr(std::string name, size_t param_size, size_t stack_size, size_t address) {
     _function_addresses[name] = address;
     _function_metadata[address] = MethodMetadata{param_size, stack_size};
-    IRunnable* runnable = new BytecodeRunnable(address, param_size, stack_size);
+    std::shared_ptr<IRunnable> runnable = std::make_shared<BytecodeRunnable>(address, param_size, stack_size);
     _methods.push_back(runnable);
 }
 
@@ -121,7 +117,7 @@ Program::get_builtin_runnable(size_t addr) const {
     return _builtins.at(addr);
 }
 
-const IRunnable*
+const std::shared_ptr<IRunnable>
 Program::get_method_runnable(size_t addr) const {
     return _methods.at(addr);
 }

@@ -129,7 +129,7 @@ public:
     const VMFixedStack& constants_table() const;
 
     const std::shared_ptr<IRunnable> get_builtin_runnable(size_t addr) const;
-    const IRunnable* get_method_runnable(size_t addr) const;
+    const std::shared_ptr<IRunnable> get_method_runnable(size_t addr) const;
 
 private:
     size_t _globals_size;
@@ -137,7 +137,7 @@ private:
     std::vector<Opcode> _code;
     VMFixedStack _constants;
     //std::unordered_map<size_t, IRunnable*> _methods;
-    std::vector<IRunnable*> _methods;
+    std::vector<std::shared_ptr<IRunnable>> _methods;
 
     std::unordered_map<std::string, size_t> _builtin_addresses;
     std::unordered_map<std::string, size_t> _function_addresses;

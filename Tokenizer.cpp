@@ -20,7 +20,7 @@ typedef std::function<std::optional<std::shared_ptr<Tokens::Token>>(std::string,
 
 std::optional<std::shared_ptr<Tokens::Token>>
 try_space(std::string line, Tokens::Position start) {
-    int i = 0;
+    size_t i = 0;
     while (i < line.length() && std::isspace(line[i])) {
         i++;
     }
@@ -33,7 +33,7 @@ try_space(std::string line, Tokens::Position start) {
 
 std::optional<std::shared_ptr<Tokens::Token>>
 try_comment(std::string line, Tokens::Position start) {
-    if (line[0] != '#') {
+    if (line.length() < 2 || line[0] != '/' || line[1] != '/') {
         return {};
     }
     Tokens::Position end = {start.line, start.col + line.length()};
@@ -72,7 +72,7 @@ try_identifier(std::string line, Tokens::Position start) {
     if (!std::isalpha(line[0]) && line[0] != '_') {
         return {};
     }
-    int i = 1;
+    size_t i = 1;
     while (i < line.length() && (std::isalnum(line[i]) || line[i] == '_')) {
         i++;
     }
@@ -145,7 +145,7 @@ try_string(std::string line, Tokens::Position start) {
     if (quote_mark != '"' && quote_mark != '\'' && quote_mark != '`') {
         return {};
     }
-    int i = 1;
+    size_t i = 1;
     while (i < line.length()) {
         if (line[i] == quote_mark) {
             Tokens::Position end = Tokens::Position{start.line, start.col + i + 1};
@@ -153,7 +153,7 @@ try_string(std::string line, Tokens::Position start) {
         }
         // TODO: escape support
         if (line[i] == '\\') {
-            int next = i + 1;
+            size_t next = i + 1;
             if (next >= line.length()) {
                 break;
             }
@@ -168,7 +168,7 @@ try_string(std::string line, Tokens::Position start) {
 std::optional<std::shared_ptr<Tokens::Token>>
 try_int(std::string line, Tokens::Position start) {
     bool enable_hex = false;
-    int i = 0;
+    size_t i = 0;
     while (i < line.length() && (std::isdigit(line[i]) || (enable_hex && std::isxdigit(line[i])) || (i == 1 && line[0] == '0' && line[1] == 'x') ) ) {
         i++;
     }
@@ -182,7 +182,7 @@ try_int(std::string line, Tokens::Position start) {
 std::optional<std::shared_ptr<Tokens::Token>>
 try_float(std::string line, Tokens::Position start) {
     // TODO: more floats (expo et al)
-    int i = 0;
+    size_t i = 0;
     while (i < line.length() && (std::isdigit(line[i]) || (i > 0 && line[i] == '.')) ) {
         i++;
     }
