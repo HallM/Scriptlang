@@ -178,13 +178,28 @@ binary_operator(Tokens::OperatorToken token) {
     return ops.at(token.oper);
 }
 
-std::string
+struct typeret {
+    std::string type_name;
+    bool is_mutable;
+};
+
+typeret
 parse_type(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
-    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
-    if (id == "ref") {
-        id = "ref " + std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
+    bool is_ref = false;
+    bool is_mut = false;
+
+    if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "mut"))) {
+        is_mut = true;
     }
-    return id;
+    if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "ref"))) {
+        is_ref = true;
+    }
+
+    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
+    if (is_ref) {
+        id = "ref " + id;
+    }
+    return typeret{ id, is_mut };
 }
 
 node_return
@@ -193,20 +208,6 @@ parse_identifier(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 
     std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
     node->data = Ast::Identifier { id };
-    return {node};
-}
-
-node_return
-parse_let(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
-    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
-
-    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
-        throw "Type of a variable must be specified";
-    }
-    auto type = parse_type(root, tokens, wip);
-
-    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
-    node->data = Ast::VariableDeclaration { id, type };
     return {node};
 }
 
@@ -387,6 +388,29 @@ parse_for(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 }
 
 node_return
+parse_let(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
+    auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
+
+    if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
+        throw "Type of a variable must be specified";
+    }
+    auto type = parse_type(root, tokens, wip);
+
+    std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    node->data = Ast::VariableDeclaration { id, type.type_name, type.is_mutable };
+
+    if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "="))) {
+        auto expr = parse_expression(root, tokens, wip, 0).node;
+
+        std::shared_ptr<Ast::Node> setnode = std::make_shared<Ast::Node>();
+        setnode->data = Ast::SetOperation { {}, node, expr };
+        node = setnode;
+    }
+
+    return {node};
+}
+
+node_return
 parse_return(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     eat_whitespace(tokens);
     std::shared_ptr<Ast::Node> ret = parse_expression(root, tokens, wip, 0).node;
@@ -425,7 +449,7 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 
         auto param_type = parse_type(root, tokens, wip);
         eat_whitespace(tokens);
-        param_types.push_back(Types::MethodTypeParameter{param_type});
+        param_types.push_back(Types::MethodTypeParameter{param_type.type_name, param_type.is_mutable});
 
         if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ","))) {
             break;
@@ -441,7 +465,7 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     }
     eat_whitespace(tokens);
 
-    std::string ret_type = "void";
+    typeret ret_type = {"void", false};
     if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
         eat_whitespace(tokens);
         ret_type = parse_type(root, tokens, wip);
@@ -450,7 +474,7 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     }
     eat_whitespace(tokens);
 
-    std::string method_type = wip.types.add_method(ret_type, param_types);
+    std::string method_type = wip.types.add_method(ret_type.type_name, ret_type.is_mutable, param_types);
 
     if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "{"))) {
         throw "Syntax error, expected block to start method";
@@ -510,7 +534,6 @@ parse_statement(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 
 node_return
 parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& wip) {
-    std::vector<std::shared_ptr<Ast::Node>> vardefs;
     std::vector<std::shared_ptr<Ast::Node>> fndefs;
     std::vector<std::shared_ptr<Ast::Node>> statements;
 
@@ -523,10 +546,7 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
 
         auto statement = parse_statement(root, tokens, wip);
 
-        if (std::holds_alternative<Ast::VariableDeclaration>(statement.node->data)) {
-            vardefs.push_back(statement.node);
-        }
-        else if (std::holds_alternative<Ast::MethodDefinition>(statement.node->data)) {
+        if (std::holds_alternative<Ast::MethodDefinition>(statement.node->data)) {
             statements.push_back(statement.node);
 
             std::shared_ptr<Ast::Node> declnode = std::make_shared<Ast::Node>();
@@ -549,7 +569,6 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
     }
 
     std::vector<std::shared_ptr<Ast::Node>> all;
-    std::copy(vardefs.begin(), vardefs.end(), std::back_inserter(all));
     std::copy(fndefs.begin(), fndefs.end(), std::back_inserter(all));
     std::copy(statements.begin(), statements.end(), std::back_inserter(all));
 

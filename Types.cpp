@@ -40,7 +40,7 @@ TypeTable::get_type(std::string name) const {
 }
 
 std::string
-TypeTable::add_method(std::string return_type, std::vector<MethodTypeParameter> params) {
+TypeTable::add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params) {
     std::ostringstream stream;
     stream << return_type << "(";
     bool add_comma = false;
@@ -63,6 +63,7 @@ TypeTable::add_method(std::string return_type, std::vector<MethodTypeParameter> 
         0,
         MethodType{
             return_type,
+            return_mutable,
             params
         },
         // There's no backing type at this time.
@@ -73,6 +74,7 @@ TypeTable::add_method(std::string return_type, std::vector<MethodTypeParameter> 
         sizeof(size_t),
         MethodType{
             return_type,
+            return_mutable,
             params
         },
         {}

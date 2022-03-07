@@ -48,6 +48,8 @@ try_keyword(std::string line, Tokens::Position start) {
         "return",
         "break",
         "else",
+        "ref",
+        "mut",
         "let",
         "for",
         "fn",
@@ -217,16 +219,18 @@ std::vector<std::shared_ptr<Tokens::Token>>
 tokenize_string(std::string contents) {
     std::istringstream stream(contents);
 
+    // these must be sorted in priority.
+    // when two tokens are the same size, the top one is used.
     std::vector<TokenScanner> scanners = {
-        try_space,
         try_comment,
+        try_space,
+        try_bool,
         try_keyword,
-        try_identifier,
         try_operator,
+        try_identifier,
         try_string,
         try_int,
-        try_float,
-        try_bool
+        try_float
     };
 
     std::vector<std::shared_ptr<Tokens::Token>> tokens;

@@ -115,6 +115,7 @@ struct AccessMember {
 struct VariableDeclaration {
     std::string name;
     std::string type;
+    bool is_mutable;
 };
 
 struct Block {

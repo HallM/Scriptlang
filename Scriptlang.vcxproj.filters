@@ -19,9 +19,6 @@
     <Filter Include="Source Files\VM">
       <UniqueIdentifier>{8d5de5fd-ca34-4292-a337-a4bfe4e77cb0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Demo">
-      <UniqueIdentifier>{1fb7f82c-2925-4fd1-8ae0-c70fff1f2e64}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\VM">
       <UniqueIdentifier>{dd5aef80-9c45-491a-ab97-cb5663a4f5f9}</UniqueIdentifier>
     </Filter>
@@ -47,9 +44,6 @@
     </ClCompile>
     <ClCompile Include="VMStack.cpp">
       <Filter>Source Files\VM</Filter>
-    </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files\Demo</Filter>
     </ClCompile>
     <ClCompile Include="BytecodeGenerator.cpp">
       <Filter>Source Files\Compiler</Filter>

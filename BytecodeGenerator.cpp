@@ -120,6 +120,7 @@ struct methodlink {
 
 struct compiled_result {
     std::string type;
+    bool is_mutable;
     bool assignable;
     // the current address information for the resulting data of this expression.
     std::variant<BytecodeParam, labellink, methodlink> address;
@@ -149,12 +150,14 @@ struct methodlinkable {
 struct variableinfo {
     std::string name;
     std::string type;
+    bool is_mutable;
     size_t address;
 };
 
 struct methodinfo {
     std::string name;
     std::string type;
+    bool return_mutable;
     bool defined;
     size_t address;
     size_t param_bytes;
@@ -271,6 +274,7 @@ compiled_result compile_const_s32(std::shared_ptr<Ast::Node> n, compiler_wip& wi
     size_t address = constant<int>(s32node.num, wip);
     return {
         type_s32,
+        true,
         false,
         ConstantAddress(LocMemoryDirect, address),
         0,
@@ -283,6 +287,7 @@ compiled_result compile_const_f32(std::shared_ptr<Ast::Node> n, compiler_wip& wi
     size_t address = constant<float>(f32node.num, wip);
     return {
         type_f32,
+        true,
         false,
         ConstantAddress(LocMemoryDirect, address),
         0,
@@ -295,6 +300,7 @@ compiled_result compile_const_bool(std::shared_ptr<Ast::Node> n, compiler_wip& w
     size_t address = constant<bool>(bnode.value, wip);
     return {
         type_bool,
+        true,
         false,
         ConstantAddress(LocMemoryDirect, address),
         0,
@@ -323,7 +329,8 @@ compiled_result compile_identifier(std::shared_ptr<Ast::Node> n, compiler_wip& w
             }
             return {
                 type.name,
-                true,
+                it->second.is_mutable,
+                it->second.is_mutable,
                 ret,
                 0,
                 0
@@ -337,6 +344,7 @@ compiled_result compile_identifier(std::shared_ptr<Ast::Node> n, compiler_wip& w
         return {
             wip.methods.at(maybe_method->second).type,
             false,
+            false,
             methodlink{ident},
             0,
             0
@@ -348,7 +356,8 @@ compiled_result compile_identifier(std::shared_ptr<Ast::Node> n, compiler_wip& w
         auto method = wip.imported_methods[maybe_imported->second];
         return {
             method.type,
-            true,
+            false,
+            false,
             ExternalCall(LocMemoryDirect, maybe_imported->second),
             0,
             0
@@ -410,7 +419,8 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
                 wip.bytecodes.push_back(Opcode(Bytecode::refAdd, address, offsetaddr, tempaddr));
                 return {
                     value.type,
-                    true,
+                    value.is_mutable,
+                    lhs.assignable && value.is_mutable,
                     tempaddr,
                     sizeof(size_t),
                     lhs.stack_bytes_used + value_type.size
@@ -421,7 +431,8 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
 
                 return {
                     value.type,
-                    true,
+                    value.is_mutable,
+                    lhs.assignable && value.is_mutable,
                     address,
                     lhs.stack_bytes_returned,
                     lhs.stack_bytes_used
@@ -433,7 +444,7 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
     throw "Unknown member to access";
 }
 
-compiled_result reserve_local(std::string name, std::string type_name, compiler_wip& wip) {
+compiled_result reserve_local(std::string name, std::string type_name, bool is_mutable, compiler_wip& wip) {
     auto& loc = wip.local_variables[wip.local_variables.size() - 1];
     if (loc.find(name) != loc.end()) {
         // TODO: shadow probably would work fine without
@@ -444,12 +455,17 @@ compiled_result reserve_local(std::string name, std::string type_name, compiler_
     auto size = type.size;
     wip.next_stack += size;
     loc[name] = {
-        name, type_name, address
+        name, type_name, is_mutable, address
     };
+    DataLoc dloc = LocMemoryDirect;
+    if (type.ref_type) {
+        dloc = LocMemoryIndirect;
+    }
     return {
-        type_empty,
-        false,
-        BytecodeParam(0, 0),
+        type_name,
+        is_mutable,
+        true,
+        StackAddressForward(dloc, address),
         size,
         size
     };
@@ -457,7 +473,7 @@ compiled_result reserve_local(std::string name, std::string type_name, compiler_
 
 compiled_result compile_vardecl(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     auto decl = std::get<Ast::VariableDeclaration>(n->data);
-    return reserve_local(decl.name, decl.type, wip);
+    return reserve_local(decl.name, decl.type, decl.is_mutable, wip);
 }
 
 compiled_result compile_unaryop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
@@ -504,6 +520,7 @@ compiled_result compile_unaryop(std::shared_ptr<Ast::Node> n, compiler_wip& wip,
 
     return {
         optype,
+        value_ret.is_mutable,
         false,
         ret,
         stack,
@@ -577,6 +594,7 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
 
     return {
         optype,
+        lhs_ret.is_mutable && rhs_ret.is_mutable,
         false,
         ret,
         stack,
@@ -606,6 +624,10 @@ compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     else {
         assign_value = compile_node(opnode.rhs, wip, assign_address);
     }
+    if (assign_to.is_mutable && !assign_value.is_mutable) {
+        throw "Unable to assign immutable value to a mutable variable";
+    }
+
     BytecodeParam from_address = std::get<BytecodeParam>(assign_value.address);
     size_t total_used = assign_value.stack_bytes_used;
 
@@ -629,6 +651,7 @@ compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
 
     return {
         optype,
+        assign_to.is_mutable,
         false,
         assign_to.address,
         0, // this assigns to some variable, so nothing should be returned.
@@ -651,6 +674,7 @@ compiled_result compile_nodelist(std::vector<std::shared_ptr<Ast::Node>> nodes, 
     wip.next_stack = last_stack;
     return {
         type_empty,
+        false,
         false,
         BytecodeParam(0, 0),
         0,
@@ -726,6 +750,7 @@ compiled_result compile_if(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     return {
         type_empty,
         false,
+        false,
         BytecodeParam(0, 0),
         0,
         max_used
@@ -768,6 +793,7 @@ compiled_result compile_dowhile(std::shared_ptr<Ast::Node> n, compiler_wip& wip)
     return {
         type_empty,
         false,
+        false,
         BytecodeParam(0, 0),
         0,
         max_used
@@ -792,6 +818,7 @@ compiled_result compile_methoddecl(std::shared_ptr<Ast::Node> n, compiler_wip& w
 
     return {
         type_empty,
+        false,
         false,
         BytecodeParam(0, 0),
         0,
@@ -820,7 +847,7 @@ compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wi
         std::string ptype_name = typedata.parameters[i].type;
         auto& pt = wip.types.get_type(ptype_name);
         param_size += pt.size;
-        reserve_local(method.param_names[i], ptype_name, wip);
+        reserve_local(method.param_names[i], ptype_name, typedata.parameters[i].is_mutable, wip);
     }
 
     // always reserve at least the ret type
@@ -855,6 +882,7 @@ compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wi
     return {
         type_empty,
         false,
+        false,
         ScriptCall(LocMemoryDirect, address),
         0,
         0
@@ -883,6 +911,7 @@ compiled_result compile_return(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
     return {
         type_empty,
         false,
+        false,
         BytecodeParam(0, 0),
         0, // we assume this is reserved by the method.
         max_used
@@ -910,6 +939,9 @@ compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodT
     if (!compatible_types(value_type, param_type)) {
         throw "Parameter is the incorrect type";
     }
+    if (!value.is_mutable && type.is_mutable) {
+        throw "Unable to assign immutable value to a mutable parameter";
+    }
 
     size_t total_used = value.stack_bytes_used;
     if (param_type.ref_type && !value_type.ref_type) {
@@ -935,6 +967,7 @@ compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodT
 
     return {
         type.type,
+        type.is_mutable,
         false,
         store_address,
         typeinfo.size,
@@ -998,6 +1031,7 @@ compiled_result compile_methodcall(std::shared_ptr<Ast::Node> n, compiler_wip& w
     // TODO: returning assignables? I think refs make it work anyway.
     return {
         typeinfo.return_type,
+        typeinfo.return_mutable,
         false,
         StackAddressForward(LocMemoryDirect, base),
         returntype.size,

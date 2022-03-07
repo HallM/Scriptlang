@@ -39,6 +39,7 @@ struct StructTypeMember {
     std::string name;
     size_t offset;
     std::string type;
+    bool is_mutable;
 };
 struct StructType {
     std::unordered_map<std::string, StructTypeMember> members;
@@ -46,9 +47,11 @@ struct StructType {
 
 struct MethodTypeParameter {
     std::string type;
+    bool is_mutable;
 };
 struct MethodType {
     std::string return_type;
+    bool return_mutable;
     std::vector<MethodTypeParameter> parameters;
 };
 
@@ -69,7 +72,7 @@ public:
 
     const TypeInfo& get_type(std::string name) const;
 
-    std::string add_method(std::string return_type, std::vector<MethodTypeParameter> params);
+    std::string add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params);
     std::string add_struct(std::string name, std::vector<StructTypeMember> members);
 
     template <typename Ret, typename... Args>
@@ -78,17 +81,17 @@ public:
         std::string r_name = _mapped.at(r);
 
         std::vector<MethodTypeParameter> params = {
-            MethodTypeParameter{_mapped.at(typeid(Args))}...
+            MethodTypeParameter{_mapped.at(typeid(Args)), !std::is_const<Args>::value}...
         };
 
-        return add_method(r_name, params);
+        return add_method(r_name, !std::is_const<Ret>::value, params);
     }
 
     template <typename T>
     StructTypeMember imported_struct_member(std::string member_name, size_t offset) {
         std::type_index rawtype = typeid(T);
         return StructTypeMember{
-            member_name, offset, _mapped.at(rawtype)
+            member_name, offset, _mapped.at(rawtype), !std::is_const<T>::value
         };
     }
     template <typename T>
