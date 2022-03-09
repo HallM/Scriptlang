@@ -76,6 +76,7 @@ enum class Bytecode: size_t {
     // It also adds the parameters in it's own stack space, but places
     // the params starting at base+0.
     Call, // [addr] [parambytes] [stackbytes]
+    FCall,
     // ret also clears a stackframe. so there MUST be a stackframe set
     Ret, // _ _ _
 

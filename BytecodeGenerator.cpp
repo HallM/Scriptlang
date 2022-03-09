@@ -419,7 +419,7 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
                 wip.bytecodes.push_back(Opcode(Bytecode::refAdd, address, offsetaddr, tempaddr));
                 return {
                     value.type,
-                    value.is_mutable,
+                    lhs.is_mutable && value.is_mutable,
                     lhs.assignable && value.is_mutable,
                     tempaddr,
                     sizeof(size_t),
@@ -431,7 +431,7 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
 
                 return {
                     value.type,
-                    value.is_mutable,
+                    lhs.is_mutable && value.is_mutable,
                     lhs.assignable && value.is_mutable,
                     address,
                     lhs.stack_bytes_returned,
@@ -520,7 +520,8 @@ compiled_result compile_unaryop(std::shared_ptr<Ast::Node> n, compiler_wip& wip,
 
     return {
         optype,
-        value_ret.is_mutable,
+        // we generate a new value, so it could safely be mutable
+        true,
         false,
         ret,
         stack,
@@ -594,7 +595,8 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
 
     return {
         optype,
-        lhs_ret.is_mutable && rhs_ret.is_mutable,
+        // we generate a new value, so it could safely be mutable
+        true,
         false,
         ret,
         stack,
@@ -1121,7 +1123,11 @@ link(compiler_wip& wip) {
         }
 
         BytecodeParam linked;
-        if (diff < 0xFFFF) {
+        if (wip.methods[method_index].address < 0x1FFF) {
+            bc.op = Bytecode::FCall;
+            linked = StackSize(LocMemoryDirect, wip.methods[method_index].address);
+        }
+        else if (diff < 0xFFFF) {
             if (ml.index >= wip.methods[method_index].address) {
                 linked = FastCallBackward(LocMemoryDirect, diff + 1);
             }

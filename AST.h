@@ -158,6 +158,10 @@ struct MethodCall {
     std::vector<std::shared_ptr<Node>> params;
 };
 
+struct CppTypeid {
+    std::string type;
+};
+
 struct UnknownAST{};
 
 struct Node {
@@ -180,7 +184,8 @@ struct Node {
         MethodDefinition,
         ReturnValue,
         CallParam,
-        MethodCall
+        MethodCall,
+        CppTypeid
     > data;
 };
 

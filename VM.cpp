@@ -86,7 +86,7 @@ VM::run_method(const Program& program, VMFixedStack& globals, size_t address, si
     _instruction_index = program_size;
     _precall(_base, stack_size);
     _instruction_index = address;
-    while (_instruction_index < program_size && _run_next(program, globals)) {}
+    _run_next(program, globals);
 }
 
 void
@@ -153,368 +153,381 @@ VM::_jump(const VMFixedStack& constants, VMFixedStack& globals, DataLoc l, size_
 bool
 VM::_run_next(const Program& program, VMFixedStack& globals) {
     const auto& constants = program.constants_table();
-    const auto& oc = program.get_opcode(_instruction_index);
-    //std::cout << _instruction_index << " << " << (int)oc.op << "\n";
-    _instruction_index++;
+    size_t program_size = program.get_code().size();
 
-    switch (oc.op) {
-    case Bytecode::Break: {
-        return false;
-        break;
-    }
-    case Bytecode::DataAddress: {
-        size_t address = size_t(_table_ptr<int>(globals, oc.p1));
-        _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
-        break;
-    }
-    case Bytecode::FunctionAddress: {
-        const size_t page = address_page(oc.p1);
-        const size_t offset = address_offset(oc.p1);
-        if (page == 0) {
-            size_t address = size_t(program.get_method_runnable(offset).get());
-            _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
+    while (_instruction_index < program_size) {
+        const auto& oc = program.get_opcode(_instruction_index);
+        //std::cout << _instruction_index << " << " << (int)oc.op << "\n";
+        _instruction_index++;
+
+        switch (oc.op) {
+        case Bytecode::Break: {
+            return false;
+            break;
         }
-        else {
-            size_t address = size_t(program.get_builtin_runnable(offset).get());
+        case Bytecode::DataAddress: {
+            size_t address = size_t(_table_ptr<int>(globals, oc.p1));
             _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
+            break;
         }
-        break;
-    }
-    case Bytecode::Dereference: {
-        size_t size = _getv<size_t>(constants, globals, oc.l2, oc.p2);
-        char* src = _getv<char*>(constants, globals, oc.l1, oc.p1);
-        char *dest = _table_ptr<char>(globals, oc.p3);
-        memcpy(dest, src, size);
-        break;
-    }
-    case Bytecode::refSet: {
-        // Always fetch the ptr as direct to get the ptr itself.
-        size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
-        _setv<size_t>(constants, globals, v, LocMemoryDirect, oc.p2);
-        break;
-    }
-    case Bytecode::refAdd: {
-        size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
-        size_t offset = _getv<size_t>(constants, globals, oc.l2, oc.p2);
-        _setv<size_t>(constants, globals, v + offset, LocMemoryDirect, oc.p3);
-        break;
-    }
-    
-    case Bytecode::f32Set: {
-        _setv<float>(constants, globals, _getv<float>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
-        break;
-    }
-    case Bytecode::f32SetFromIndexed: {
-        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-        char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
-        p += offset;
-        float v = *((float*)p);
-        _setv<float>(constants, globals, v, oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32SetIntoIndexed: {
-        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-        float v = _getv<float>(constants, globals, oc.l1, oc.p1);
-
-        char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
-        p += offset;
-        float* ptr = (float*)p;
-        *ptr = v;
-        break;
-    }
-    case Bytecode::f32Add: {
-        _setv<float>(constants, globals, aluadd<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Sub: {
-        _setv<float>(constants, globals, alusub<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Mul: {
-        _setv<float>(constants, globals, alumul<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Div: {
-        _setv<float>(constants, globals, aludiv<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Less: {
-        _setv<bool>(constants, globals, lt<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32LessEqual: {
-        _setv<bool>(constants, globals, le<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Greater: {
-        _setv<bool>(constants, globals, gt<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32GreaterEqual: {
-        _setv<bool>(constants, globals, ge<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Equal: {
-        _setv<bool>(constants, globals, eq<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32NotEqual: {
-        _setv<bool>(constants, globals, ne<float>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::f32Negate: {
-        _setv<float>(constants, globals, aluneg<float>(constants, globals, oc) , oc.l2, oc.p2);
-        break;
-    }
-
-    case Bytecode::s32Set: {
-        _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
-        break;
-    }
-    case Bytecode::s32SetFromIndexed: {
-        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-        char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
-        p += offset;
-        int v = *((int*)p);
-        _setv<int>(constants, globals, v, oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32SetIntoIndexed: {
-        size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-        int v = _getv<int>(constants, globals, oc.l1, oc.p1);
-
-        char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
-        p += offset;
-        int* ptr = (int*)p;
-        *ptr = v;
-        break;
-    }
-    case Bytecode::s32Add: {
-        _setv<int>(constants, globals, aluadd<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Sub: {
-        _setv<int>(constants, globals, alusub<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Mul: {
-        _setv<int>(constants, globals, alumul<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Div: {
-        _setv<int>(constants, globals, aludiv<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Less: {
-        _setv<bool>(constants, globals, lt<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32LessEqual: {
-        _setv<bool>(constants, globals, le<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Greater: {
-        _setv<bool>(constants, globals, gt<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32GreaterEqual: {
-        _setv<bool>(constants, globals, ge<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Equal: {
-        _setv<bool>(constants, globals, eq<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32NotEqual: {
-        _setv<bool>(constants, globals, ne<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32Negate: {
-        _setv<int>(constants, globals, aluneg<int>(constants, globals, oc) , oc.l2, oc.p2);
-        break;
-    }
-    case Bytecode::s32BitNot: {
-        _setv<int>(constants, globals, alubitnot<int>(constants, globals, oc) , oc.l2, oc.p2);
-        break;
-    }
-    case Bytecode::s32BitAnd: {
-        _setv<int>(constants, globals, alubitand<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32BitOr: {
-        _setv<int>(constants, globals, alubitor<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32BitXor: {
-        _setv<int>(constants, globals, alubitxor<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32ShiftLeft: {
-        _setv<int>(constants, globals, alubitshl<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::s32ShiftRight: {
-        _setv<int>(constants, globals, alubitshr<int>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-
-    case Bytecode::bAnd: {
-        bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) && _getv<bool>(constants, globals, oc.l2, oc.p2);
-        _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::bOr: {
-        bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) || _getv<bool>(constants, globals, oc.l2, oc.p2);
-        _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::bEqual: {
-        _setv<bool>(constants, globals, eq<bool>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::bNotEqual: {
-        _setv<bool>(constants, globals, ne<bool>(constants, globals, oc) , oc.l3, oc.p3);
-        break;
-    }
-    case Bytecode::bNot: {
-        _setv<bool>(constants, globals, alubitnot<bool>(constants, globals, oc) , oc.l2, oc.p2);
-        break;
-    }
-
-    case Bytecode::Call: {
-        size_t fn_base = _base + address_offset(oc.p2);
-        if (oc.l1 == LocMemoryDirect) {
-            std::shared_ptr<IRunnable> r;
+        case Bytecode::FunctionAddress: {
             const size_t page = address_page(oc.p1);
             const size_t offset = address_offset(oc.p1);
+            if (page == 0) {
+                size_t address = size_t(program.get_method_runnable(offset).get());
+                _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
+            }
+            else {
+                size_t address = size_t(program.get_builtin_runnable(offset).get());
+                _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
+            }
+            break;
+        }
+        case Bytecode::Dereference: {
+            size_t size = _getv<size_t>(constants, globals, oc.l2, oc.p2);
+            char* src = _getv<char*>(constants, globals, oc.l1, oc.p1);
+            char *dest = _table_ptr<char>(globals, oc.p3);
+            memcpy(dest, src, size);
+            break;
+        }
+        case Bytecode::refSet: {
+            // Always fetch the ptr as direct to get the ptr itself.
+            size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
+            _setv<size_t>(constants, globals, v, LocMemoryDirect, oc.p2);
+            break;
+        }
+        case Bytecode::refAdd: {
+            size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
+            size_t offset = _getv<size_t>(constants, globals, oc.l2, oc.p2);
+            _setv<size_t>(constants, globals, v + offset, LocMemoryDirect, oc.p3);
+            break;
+        }
+    
+        case Bytecode::f32Set: {
+            _setv<float>(constants, globals, _getv<float>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
+            break;
+        }
+        case Bytecode::f32SetFromIndexed: {
+            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+            char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
+            p += offset;
+            float v = *((float*)p);
+            _setv<float>(constants, globals, v, oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32SetIntoIndexed: {
+            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+            float v = _getv<float>(constants, globals, oc.l1, oc.p1);
+
+            char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
+            p += offset;
+            float* ptr = (float*)p;
+            *ptr = v;
+            break;
+        }
+        case Bytecode::f32Add: {
+            _setv<float>(constants, globals, aluadd<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Sub: {
+            _setv<float>(constants, globals, alusub<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Mul: {
+            _setv<float>(constants, globals, alumul<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Div: {
+            _setv<float>(constants, globals, aludiv<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Less: {
+            _setv<bool>(constants, globals, lt<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32LessEqual: {
+            _setv<bool>(constants, globals, le<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Greater: {
+            _setv<bool>(constants, globals, gt<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32GreaterEqual: {
+            _setv<bool>(constants, globals, ge<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Equal: {
+            _setv<bool>(constants, globals, eq<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32NotEqual: {
+            _setv<bool>(constants, globals, ne<float>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::f32Negate: {
+            _setv<float>(constants, globals, aluneg<float>(constants, globals, oc) , oc.l2, oc.p2);
+            break;
+        }
+
+        case Bytecode::s32Set: {
+            _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
+            break;
+        }
+        case Bytecode::s32SetFromIndexed: {
+            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+            char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
+            p += offset;
+            int v = *((int*)p);
+            _setv<int>(constants, globals, v, oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32SetIntoIndexed: {
+            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
+            int v = _getv<int>(constants, globals, oc.l1, oc.p1);
+
+            char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
+            p += offset;
+            int* ptr = (int*)p;
+            *ptr = v;
+            break;
+        }
+        case Bytecode::s32Add: {
+            _setv<int>(constants, globals, aluadd<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Sub: {
+            _setv<int>(constants, globals, alusub<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Mul: {
+            _setv<int>(constants, globals, alumul<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Div: {
+            _setv<int>(constants, globals, aludiv<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Less: {
+            _setv<bool>(constants, globals, lt<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32LessEqual: {
+            _setv<bool>(constants, globals, le<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Greater: {
+            _setv<bool>(constants, globals, gt<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32GreaterEqual: {
+            _setv<bool>(constants, globals, ge<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Equal: {
+            _setv<bool>(constants, globals, eq<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32NotEqual: {
+            _setv<bool>(constants, globals, ne<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32Negate: {
+            _setv<int>(constants, globals, aluneg<int>(constants, globals, oc) , oc.l2, oc.p2);
+            break;
+        }
+        case Bytecode::s32BitNot: {
+            _setv<int>(constants, globals, alubitnot<int>(constants, globals, oc) , oc.l2, oc.p2);
+            break;
+        }
+        case Bytecode::s32BitAnd: {
+            _setv<int>(constants, globals, alubitand<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32BitOr: {
+            _setv<int>(constants, globals, alubitor<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32BitXor: {
+            _setv<int>(constants, globals, alubitxor<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32ShiftLeft: {
+            _setv<int>(constants, globals, alubitshl<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::s32ShiftRight: {
+            _setv<int>(constants, globals, alubitshr<int>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+
+        case Bytecode::bAnd: {
+            bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) && _getv<bool>(constants, globals, oc.l2, oc.p2);
+            _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::bOr: {
+            bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) || _getv<bool>(constants, globals, oc.l2, oc.p2);
+            _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::bEqual: {
+            _setv<bool>(constants, globals, eq<bool>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::bNotEqual: {
+            _setv<bool>(constants, globals, ne<bool>(constants, globals, oc) , oc.l3, oc.p3);
+            break;
+        }
+        case Bytecode::bNot: {
+            _setv<bool>(constants, globals, alubitnot<bool>(constants, globals, oc) , oc.l2, oc.p2);
+            break;
+        }
+
+        case Bytecode::FCall: {
+            size_t fn_base = _base + address_offset(oc.p2);
+            const size_t addr = address_offset(oc.p1);
             size_t stack = oc.p3;
-            switch (page) {
-            case 0:
-                r = program.get_method_runnable(offset);
-                r->invoke(*this, data, fn_base);
-                break;
-            case 1: {
-                r = program.get_builtin_runnable(offset);
-                r->invoke(*this, data, fn_base);
-                break;
+            _precall(fn_base, stack);
+            _instruction_index = addr;
+            break;
+        }
+
+        case Bytecode::Call: {
+            size_t fn_base = _base + address_offset(oc.p2);
+            if (oc.l1 == LocMemoryDirect) {
+                std::shared_ptr<IRunnable> r;
+                const size_t page = address_page(oc.p1);
+                const size_t offset = address_offset(oc.p1);
+                size_t stack = oc.p3;
+                switch (page) {
+                case 0:
+                    r = program.get_method_runnable(offset);
+                    r->invoke(*this, data, fn_base);
+                    break;
+                case 1: {
+                    r = program.get_builtin_runnable(offset);
+                    r->invoke(*this, data, fn_base);
+                    break;
+                }
+                case 2:
+                    _precall(fn_base, stack);
+                    _instruction_index += offset;
+                    break;
+                default:
+                case 3:
+                    _precall(fn_base, stack);
+                    _instruction_index -= offset;
+                    break;
+                }
             }
-            case 2:
-                _precall(fn_base, stack);
-                _instruction_index += offset;
-                break;
-            default:
-            case 3:
-                _precall(fn_base, stack);
-                _instruction_index -= offset;
-                break;
+            else {
+                auto runnable = _table_value<IRunnable*>(constants, globals, oc.p1);
+                runnable->invoke(*this, data, fn_base);
             }
+            break;
         }
-        else {
-            auto runnable = _table_value<IRunnable*>(constants, globals, oc.p1);
-            runnable->invoke(*this, data, fn_base);
+        case Bytecode::Ret: {
+            _postcall();
+            break;
         }
-        break;
-    }
-    case Bytecode::Ret: {
-        _postcall();
-        break;
-    }
 
-    case Bytecode::Jump: {
-        _jump(constants, globals, oc.l1, oc.p1);
-        break;
-    }
+        case Bytecode::Jump: {
+            _jump(constants, globals, oc.l1, oc.p1);
+            break;
+        }
 
-    case Bytecode::bJTrue: {
-        if (_getv<bool>(constants, globals, oc.l1, oc.p1)) {
-            _jump(constants, globals, oc.l2, oc.p2);
+        case Bytecode::bJTrue: {
+            if (_getv<bool>(constants, globals, oc.l1, oc.p1)) {
+                _jump(constants, globals, oc.l2, oc.p2);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::bJFalse: {
-        if (!_getv<bool>(constants, globals, oc.l1, oc.p1)) {
-            _jump(constants, globals, oc.l2, oc.p2);
+        case Bytecode::bJFalse: {
+            if (!_getv<bool>(constants, globals, oc.l1, oc.p1)) {
+                _jump(constants, globals, oc.l2, oc.p2);
+            }
+            break;
         }
-        break;
-    }
 
-    case Bytecode::f32JLT: {
-        if (lt<float>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::f32JLT: {
+            if (lt<float>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::f32JLE: {
-        if (le<float>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::f32JLE: {
+            if (le<float>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::f32JGT: {
-        if (gt<float>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::f32JGT: {
+            if (gt<float>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::f32JGE: {
-        if (ge<float>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::f32JGE: {
+            if (ge<float>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::f32JEQ: {
-        if (eq<float>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::f32JEQ: {
+            if (eq<float>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::f32JNE: {
-        if (ne<float>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::f32JNE: {
+            if (ne<float>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
 
 
-    case Bytecode::s32JLT: {
-        if (lt<int>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::s32JLT: {
+            if (lt<int>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::s32JLE: {
-        if (le<int>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::s32JLE: {
+            if (le<int>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::s32JGT: {
-        if (gt<int>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::s32JGT: {
+            if (gt<int>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::s32JGE: {
-        if (ge<int>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::s32JGE: {
+            if (ge<int>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::s32JEQ: {
-        if (eq<int>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::s32JEQ: {
+            if (eq<int>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
-    case Bytecode::s32JNE: {
-        if (ne<int>(constants, globals, oc)) {
-            _jump(constants, globals, oc.l3, oc.p3);
+        case Bytecode::s32JNE: {
+            if (ne<int>(constants, globals, oc)) {
+                _jump(constants, globals, oc.l3, oc.p3);
+            }
+            break;
         }
-        break;
-    }
 
-    default:
-        return false;
+        default:
+            return false;
+        }
     }
     return true;
 }
