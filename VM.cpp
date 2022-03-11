@@ -199,6 +199,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         case Bytecode::refAdd: {
             size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
             size_t offset = _getv<size_t>(constants, globals, oc.l2, oc.p2);
+            std::cout << v << " + " << offset << " = " << v+offset << "\n";
             _setv<size_t>(constants, globals, v + offset, LocMemoryDirect, oc.p3);
             break;
         }

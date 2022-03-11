@@ -111,6 +111,30 @@ std::unordered_map<Ast::UnaryOps, operinfo> unary_opcode(std::string type) {
     return {};
 }
 
+std::unordered_map<Ast::BinaryOps, operinfo> jump_opcode(std::string type) {
+    // so these have to be the inverse to work right.
+    if (type == type_s32) {
+        return {
+            {Ast::BinaryOps::Eq, {Bytecode::s32JNE, type_bool}},
+            {Ast::BinaryOps::NotEq, {Bytecode::s32JEQ, type_bool}},
+            {Ast::BinaryOps::Less, {Bytecode::s32JGE, type_bool}},
+            {Ast::BinaryOps::LessEqual, {Bytecode::s32JGT, type_bool}},
+            {Ast::BinaryOps::Greater, {Bytecode::s32JLE, type_bool}},
+            {Ast::BinaryOps::GreaterEqual, {Bytecode::s32JLT, type_bool}},
+        };
+    } else if (type == type_f32) {
+        return {
+            {Ast::BinaryOps::Eq, {Bytecode::f32JNE, type_bool}},
+            {Ast::BinaryOps::NotEq, {Bytecode::f32JEQ, type_bool}},
+            {Ast::BinaryOps::Less, {Bytecode::f32JGE, type_bool}},
+            {Ast::BinaryOps::LessEqual, {Bytecode::f32JGT, type_bool}},
+            {Ast::BinaryOps::Greater, {Bytecode::f32JLE, type_bool}},
+            {Ast::BinaryOps::GreaterEqual, {Bytecode::f32JLT, type_bool}},
+        };
+    }
+    return {};
+}
+
 struct labellink {
     size_t labelid;
 };
@@ -131,16 +155,12 @@ struct compiled_result {
 };
 
 struct labellinkable {
-    // the index in the bytecode table to be linked
-    size_t index;
     // the param (0-2) that needs to be linked
     size_t param;
     // the label to look up
     size_t label;
 };
 struct methodlinkable {
-    // the index in the bytecode table to be linked
-    size_t index;
     // the param (0-2) that needs to be linked
     size_t param;
     // the label to look up
@@ -160,19 +180,45 @@ struct methodinfo {
     bool return_mutable;
     bool defined;
     size_t address;
+    size_t size;
     size_t param_bytes;
     size_t stack_bytes;
 };
 
+struct operation {
+    Opcode opcode;
+    std::optional<labellinkable> label_link;
+    std::optional<methodlinkable> method_link;
+};
+
 // holds all the necessary tables as we move through the compilation step
-struct compiler_wip {
+class compiler_wip {
+public:
+    compiler_wip(const Types::TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {
+        for (size_t i = 0; i < m.size(); i++) {
+            Ast::ImportedMethod method = m[i];
+            std::cout << method.name << " imported\n";
+            imported_method_names[method.name] = i;
+        }
+    }
+
+    void add_bytecode(Opcode oc) {
+        bytecodes.push_back(operation{oc, {}, {}});
+    }
+
+    void add_bytecode_linked_method(Opcode oc, std::string method_name, size_t param_index) {
+        bytecodes.push_back(operation{oc, {}, methodlinkable{param_index, method_name}});
+    }
+
+    void add_bytecode_linked_label(Opcode oc, size_t label, size_t param_index) {
+        bytecodes.push_back(operation{oc, labellinkable{param_index, label}, {}});
+    }
+
     const Types::TypeTable& types;
     const ImportedMethods& imported_methods;
     std::unordered_map<std::string, size_t> imported_method_names;
 
-    std::vector<Opcode> bytecodes;
-    std::vector<labellinkable> labellinks;
-    std::vector<methodlinkable> methodlinks;
+    std::vector<operation> bytecodes;
     std::unordered_map<size_t, size_t> labels;
     size_t next_label;
 
@@ -191,15 +237,6 @@ struct compiler_wip {
 
     std::vector<methodinfo> methods;
     std::unordered_map<std::string, size_t> method_indices;
-
-    public:
-    compiler_wip(const Types::TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {
-        for (size_t i = 0; i < m.size(); i++) {
-            Ast::ImportedMethod method = m[i];
-            std::cout << method.name << " imported\n";
-            imported_method_names[method.name] = i;
-        }
-    }
 };
 
 bool compatible_types(const Types::TypeInfo& a, const Types::TypeInfo& b) {
@@ -416,7 +453,7 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
                 wip.next_stack += sizeof(size_t);
                 auto offsetaddr = ConstantAddress(LocMemoryDirect, constant<size_t>(value.offset, wip));
                 auto tempaddr = StackAddressForward(LocMemoryIndirect, temp);
-                wip.bytecodes.push_back(Opcode(Bytecode::refAdd, address, offsetaddr, tempaddr));
+                wip.add_bytecode(Opcode(Bytecode::refAdd, address, offsetaddr, tempaddr));
                 return {
                     value.type,
                     lhs.is_mutable && value.is_mutable,
@@ -428,6 +465,7 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
             }
             else {
                 address.offset += value.offset;
+                std::cout << address.loc << " access offset " << value.offset << "\n";
 
                 return {
                     value.type,
@@ -512,7 +550,7 @@ compiled_result compile_unaryop(std::shared_ptr<Ast::Node> n, compiler_wip& wip,
         total_used += size;
     }
 
-    wip.bytecodes.push_back(
+    wip.add_bytecode(
         Opcode(op.bc, std::get<BytecodeParam>(value_ret.address), ret)
     );
     // can free all unused stack for other ops now
@@ -587,7 +625,7 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
         total_used += size;
     }
 
-    wip.bytecodes.push_back(
+    wip.add_bytecode(
         Opcode(op.bc, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), ret)
     );
     // can free all unused stack for other ops now
@@ -644,7 +682,7 @@ compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
 
     if (from_address != assign_address) {
         auto opinfo = assignment_opcode(optype, wip);
-        wip.bytecodes.push_back(
+        wip.add_bytecode(
             Opcode(opinfo.bc, from_address, assign_address)
         );
     }
@@ -660,6 +698,59 @@ compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
         total_used
     };
 }
+
+
+
+
+compiled_result compile_testbinop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, size_t else_label) {
+    auto opnode = std::get<Ast::BinaryOperation>(n->data);
+    size_t stack = 0;
+    size_t stack_start = wip.next_stack;
+
+    size_t total_used = 0;
+
+    auto rhs_ret = compile_node(opnode.rhs, wip, {});
+    total_used = rhs_ret.stack_bytes_used;
+
+    auto lhs_ret = compile_node(opnode.lhs, wip, {});
+    if (total_used < lhs_ret.stack_bytes_used + stack) {
+        // the "stack" quantity is already reserved.
+        // if the rhs still happened to use more than that, then we
+        // could re-use some temporaries.
+        total_used = lhs_ret.stack_bytes_used + rhs_ret.stack_bytes_returned;
+    }
+
+    if (!compatible_types_by_name(lhs_ret.type, rhs_ret.type, wip)) {
+        throw "Incompatible types";
+    }
+
+    auto optable = jump_opcode(lhs_ret.type);
+    auto maybeOp = optable.find(opnode.op);
+    if (maybeOp == optable.end()) {
+        throw "Operator not supported by type";
+    }
+    auto op = maybeOp->second;
+    auto optype = maybeOp->second.type_returned;
+
+    wip.add_bytecode_linked_label(
+        Opcode(op.bc, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), BytecodeParam(0, 0)),
+        else_label,
+        2
+    );
+
+    // can free all unused stack for other ops now
+    wip.next_stack = stack_start + stack;
+
+    return {
+        type_empty,
+        false,
+        false,
+        BytecodeParam(0, 0),
+        stack,
+        total_used
+    };
+}
+
 
 compiled_result compile_nodelist(std::vector<std::shared_ptr<Ast::Node>> nodes, compiler_wip& wip) {
     // TODO: support block-expressions
@@ -702,21 +793,23 @@ compiled_result compile_if(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     size_t end_label = wip.next_label++;
     size_t max_used = 0;
 
-    auto condition = compile_node(stmt.condition, wip, {});
-    if (condition.type != type_bool) {
-        throw "If condition must be a boolean";
+    if (std::holds_alternative<Ast::BinaryOperation>(stmt.condition->data)) {
+        compile_testbinop(stmt.condition, wip, stmt.otherwise ? else_label : end_label);
     }
+    else {
+        auto condition = compile_node(stmt.condition, wip, {});
+        if (condition.type != type_bool) {
+            throw "If condition must be a boolean";
+        }
 
-    max_used = condition.stack_bytes_used;
+        max_used = condition.stack_bytes_used;
 
-    wip.labellinks.push_back(labellinkable{
-        wip.bytecodes.size(),
-        1,
-        stmt.otherwise ? else_label : end_label
-    });
-    wip.bytecodes.push_back(
-        Opcode(Bytecode::bJFalse, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0))
-    );
+        wip.add_bytecode_linked_label(
+            Opcode(Bytecode::bJFalse, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
+            stmt.otherwise ? else_label : end_label,
+            1
+        );
+    }
 
     // at this point, the condition is no longer needed
     wip.next_stack = stack_start;
@@ -728,13 +821,10 @@ compiled_result compile_if(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
 
     if (stmt.otherwise) {
         // need to jump Then to the end to skip Else
-        wip.labellinks.push_back(labellinkable{
-            wip.bytecodes.size(),
-            0,
-            end_label
-        });
-        wip.bytecodes.push_back(
-            Opcode(Bytecode::Jump, BytecodeParam(0, 0))
+        wip.add_bytecode_linked_label(
+            Opcode(Bytecode::Jump, BytecodeParam(0, 0)),
+            end_label,
+            0
         );
 
         // nothing from Then is needed.
@@ -778,13 +868,10 @@ compiled_result compile_dowhile(std::shared_ptr<Ast::Node> n, compiler_wip& wip)
         max_used = condition.stack_bytes_used + value.stack_bytes_returned;
     }
 
-    wip.labellinks.push_back(labellinkable{
-        wip.bytecodes.size(),
-        1,
-        start_label
-    });
-    wip.bytecodes.push_back(
-        Opcode(Bytecode::bJTrue, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0))
+    wip.add_bytecode_linked_label(
+        Opcode(Bytecode::bJTrue, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
+        start_label,
+        1
     );
 
     // free all stack used above
@@ -863,9 +950,9 @@ compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wi
 
     auto r = compile_node(method.node, wip, {});
 
-    if (wip.bytecodes[wip.bytecodes.size() - 1].op != Bytecode::Ret) {
+    if (wip.bytecodes[wip.bytecodes.size() - 1].opcode.op != Bytecode::Ret) {
         if (rettype.size == 0) {
-            wip.bytecodes.push_back(Opcode(Bytecode::Ret));
+            wip.add_bytecode(Opcode(Bytecode::Ret));
         }
         else {
             // TODO: need a better "exit" detector to make sure all paths exit
@@ -875,6 +962,7 @@ compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wi
 
     methodinfo.defined = true;
     methodinfo.address = address;
+    methodinfo.size = wip.bytecodes.size() - address;
     methodinfo.param_bytes = param_size;
     methodinfo.stack_bytes = r.stack_bytes_used;
 
@@ -902,12 +990,12 @@ compiled_result compile_return(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
 
         if (ret_address != std::get<BytecodeParam>(value.address)) {
             auto opinfo = assignment_opcode(value.type, wip);
-            wip.bytecodes.push_back(
+            wip.add_bytecode(
                 Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), StackAddressForward(LocMemoryDirect, 0))
             );
         }
     }
-    wip.bytecodes.push_back(
+    wip.add_bytecode(
         Opcode(Bytecode::Ret)
     );
     return {
@@ -947,18 +1035,18 @@ compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodT
 
     size_t total_used = value.stack_bytes_used;
     if (param_type.ref_type && !value_type.ref_type) {
-        wip.bytecodes.push_back(
+        wip.add_bytecode(
             Opcode(Bytecode::DataAddress, std::get<BytecodeParam>(value.address), store_address)
         );
     }
     else if (!param_type.ref_type && value_type.ref_type) {
-        wip.bytecodes.push_back(
+        wip.add_bytecode(
             Opcode(Bytecode::Dereference, std::get<BytecodeParam>(value.address), store_address)
         );
     }
     else if (std::get<BytecodeParam>(value.address) != store_address) {
         auto opinfo = assignment_opcode(value.type, wip);
-        wip.bytecodes.push_back(
+        wip.add_bytecode(
             Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), store_address)
         );
         total_used += typeinfo.size;
@@ -1013,20 +1101,19 @@ compiled_result compile_methodcall(std::shared_ptr<Ast::Node> n, compiler_wip& w
     if (std::holds_alternative<methodlink>(callable.address)) {
         auto l = std::get<methodlink>(callable.address);
         p1 = BytecodeParam(0, 0);
-        wip.methodlinks.push_back({
-            wip.bytecodes.size(),
-            0,
-            l.name
-        });
+        wip.add_bytecode_linked_method(
+            Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base)),
+            l.name,
+            0
+        );
     }
     else {
         p1 = std::get<BytecodeParam>(callable.address);
+        wip.add_bytecode(
+            Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base))
+        );
     }
 
-    std::cout << "add call " << wip.bytecodes.size() << "\n";
-    wip.bytecodes.push_back(
-        Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base))
-    );
 
     // free all the params
     wip.next_stack = base + returntype.size;
@@ -1106,59 +1193,82 @@ generate_bytecode(std::shared_ptr<Ast::Node> ast_root, compiler_wip& wip) {
     compile_node(ast_root, wip, {});
 }
 
-void
-link(compiler_wip& wip) {
-    for (auto& ml : wip.methodlinks) {
-        auto& bc = wip.bytecodes[ml.index];
-        auto& method_index = wip.method_indices.at(ml.method_name);
-        if (!wip.methods[method_index].defined) {
-            throw "Method never defined";
-        }
-        size_t diff = 0;
-        if (ml.index >= wip.methods[method_index].address) {
-            diff = ml.index - wip.methods[method_index].address;
-        }
-        else {
-            diff = wip.methods[method_index].address - ml.index;
-        }
+BytecodeParam
+_jump_address(size_t jump_to, size_t jump_from) {
+    if (jump_from > jump_to) {
+        size_t diff = jump_from - jump_to;
+        return JumpOffsetBackward(LocMemoryDirect, diff + 1);
+    }
+    else {
+        size_t diff = jump_to - jump_from;
+        return JumpOffsetForward(LocMemoryDirect, diff - 1);
+    }
+}
 
-        BytecodeParam linked;
-        if (wip.methods[method_index].address < 0x1FFF) {
-            bc.op = Bytecode::FCall;
-            linked = StackSize(LocMemoryDirect, wip.methods[method_index].address);
-        }
-        else if (diff < 0xFFFF) {
-            if (ml.index >= wip.methods[method_index].address) {
-                linked = FastCallBackward(LocMemoryDirect, diff + 1);
-            }
-            else {
-                linked = FastCallForward(LocMemoryDirect, diff - 1);
-            }
-        }
-        else {
-            linked = ScriptCall(LocMemoryDirect, method_index);
-        }
+BytecodeParam
+_call_address(size_t jump_to, size_t jump_from) {
+    return JumpExact(LocMemoryDirect, jump_to);
+}
 
-        bc.set_parameter1(linked);
-        // We don't touch the base (p2)
-        bc.set_parameter3(StackSize(LocMemoryDirect, wip.methods[method_index].stack_bytes));
+bool
+_farcall_required(size_t jump_to, size_t jump_from) {
+    if (jump_to > 0xFFFF) {
+        return true;
     }
 
-    for (auto& ll : wip.labellinks) {
-        auto& bc = wip.bytecodes[ll.index];
-        size_t link_address = wip.labels.at(ll.label);
+    size_t diff = 0;
+    if (jump_from > jump_to) {
+        diff = jump_from - jump_to;
+    }
+    else {
+        diff = jump_to - jump_from;
+    }
+    return diff > 0xFFFF;
+}
 
-        BytecodeParam linked = JumpExact(LocMemoryDirect, link_address);
-        switch (ll.param) {
-        case 0:
+void
+link(compiler_wip& wip) {
+    for (size_t i = 0; i < wip.bytecodes.size(); i++) {
+        auto& op = wip.bytecodes[i];
+
+        if (op.method_link) {
+            auto ml = op.method_link.value();
+            auto& bc = op.opcode;
+            auto& method_index = wip.method_indices.at(ml.method_name);
+            if (!wip.methods[method_index].defined) {
+                throw "Method never defined";
+            }
+
+            BytecodeParam linked;
+            if (_farcall_required(wip.methods[method_index].address, i)) {
+                linked = ScriptCall(LocMemoryDirect, method_index);
+            }
+            else {
+                bc.op = Bytecode::FCall;
+                linked = _call_address(wip.methods[method_index].address, i);
+            }
+
             bc.set_parameter1(linked);
-            break;
-        case 1:
-            bc.set_parameter2(linked);
-            break;
-        case 2:
-            bc.set_parameter3(linked);
-            break;
+            // We don't touch the base (p2)
+            bc.set_parameter3(StackSize(LocMemoryDirect, wip.methods[method_index].stack_bytes));
+        }
+        if (op.label_link) {
+            auto ll = op.label_link.value();
+            auto& bc = op.opcode;
+            size_t link_address = wip.labels.at(ll.label);
+
+            BytecodeParam linked = _jump_address(link_address, i);
+            switch (ll.param) {
+            case 0:
+                bc.set_parameter1(linked);
+                break;
+            case 1:
+                bc.set_parameter2(linked);
+                break;
+            case 2:
+                bc.set_parameter3(linked);
+                break;
+            }
         }
     }
 }
@@ -1177,10 +1287,10 @@ print_program(compiler_wip& wip) {
 
     size_t i = 0;
     for (auto& bc : wip.bytecodes) {
-        std::cout << i << ": " << (unsigned int)bc.op << " ";
-        std::cout << address_page(bc.p1) << ":" << address_offset(bc.p1) << " ";
-        std::cout << address_page(bc.p2) << ":" << address_offset(bc.p2) << " ";
-        std::cout << address_page(bc.p3) << ":" << address_offset(bc.p3) << "\n";
+        std::cout << i << ": " << (unsigned int)bc.opcode.op << " ";
+        std::cout << address_page(bc.opcode.p1) << ":" << address_offset(bc.opcode.p1) << " ";
+        std::cout << address_page(bc.opcode.p2) << ":" << address_offset(bc.opcode.p2) << " ";
+        std::cout << address_page(bc.opcode.p3) << ":" << address_offset(bc.opcode.p3) << "\n";
         i++;
     }
 }
@@ -1212,7 +1322,6 @@ generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& t
     generate_bytecode(ast_root, wip);
     link(wip);
     print_program(wip);
-    wip.bytecodes.push_back(Opcode(Bytecode::Break));
 
     auto p = std::make_shared<Program>(wip.next_const);
 
@@ -1239,7 +1348,12 @@ generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& t
             throw "Unknown constant type";
         }
     }
-    p->add_code(wip.bytecodes);
+    std::vector<Opcode> bytecodes;
+    bytecodes.reserve(wip.bytecodes.size());
+    for (auto& b : wip.bytecodes) {
+        bytecodes.push_back(b.opcode);
+    }
+    p->add_code(bytecodes);
 
     for (auto& m : wip.methods) {
         p->add_method_addr(m.name, m.param_bytes, m.stack_bytes, m.address);

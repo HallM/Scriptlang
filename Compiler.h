@@ -17,6 +17,7 @@ public:
 
     template <typename M>
     StructImportBuilder<T>& add_member(std::string member_name, size_t offset) {
+        std::cout << member_name << " at " << offset << "\n";
         _members.push_back(_types.imported_struct_member<M>(member_name, offset));
         return *this;
     }

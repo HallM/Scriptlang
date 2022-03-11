@@ -90,7 +90,7 @@ enum class Bytecode: size_t {
     bJTrue, // a [jumpto]
     bJFalse,
 
-    // 52
+    // 53
     // conditional jumps
     // JLT [p1] [p2] [jumpto]
     f32JLT, // a b [jumpto]
@@ -106,7 +106,7 @@ enum class Bytecode: size_t {
     s32JGE,
     s32JEQ,
     s32JNE,
-    // 64
+    // 65
 };
 
 // we need 4 bits

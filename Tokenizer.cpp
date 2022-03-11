@@ -48,6 +48,7 @@ try_keyword(std::string line, Tokens::Position start) {
         "return",
         "break",
         "else",
+        "void",
         "ref",
         "mut",
         "let",

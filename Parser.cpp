@@ -413,9 +413,14 @@ parse_let(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 node_return
 parse_return(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     eat_whitespace(tokens);
-    std::shared_ptr<Ast::Node> ret = parse_expression(root, tokens, wip, 0).node;
     std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
-    node->data = Ast::ReturnValue { ret };
+    if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "void"))) {
+        node->data = Ast::ReturnValue { {} };
+    }
+    else {
+        std::shared_ptr<Ast::Node> ret = parse_expression(root, tokens, wip, 0).node;
+        node->data = Ast::ReturnValue { ret };
+    }
     return {node};
 }
 

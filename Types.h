@@ -108,6 +108,7 @@ public:
             typeid(T)
         };
         _mapped[typeid(T)] = type_name;
+        _mapped[typeid(const T)] = type_name;
 
         std::string ref_type = "ref " + type_name;
         _types[ref_type] = TypeInfo{
@@ -117,6 +118,7 @@ public:
             typeid(T*)
         };
         _mapped[typeid(T*)] = ref_type;
+        _mapped[typeid(const T*)] = ref_type;
         return type_name;
     }
 
