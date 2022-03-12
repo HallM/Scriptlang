@@ -452,13 +452,27 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
                 size_t temp = wip.next_stack;
                 wip.next_stack += sizeof(size_t);
                 auto offsetaddr = ConstantAddress(LocMemoryDirect, constant<size_t>(value.offset, wip));
-                auto tempaddr = StackAddressForward(LocMemoryIndirect, temp);
-                wip.add_bytecode(Opcode(Bytecode::refAdd, address, offsetaddr, tempaddr));
+
+                // the result of an access to a ref is always a ref.
+                // We set the direct/indirect loc of dest/P2 of the bytecode to signify the VM needs to deref.
+                auto resultaddr = StackAddressForward(LocMemoryDirect, temp);
+                std::string value_type_name = value.type;
+                if (value_type.ref_type) {
+                    // if the member is a ref, we need to deref the first to not return a double-ptr.
+                    resultaddr = StackAddressForward(LocMemoryIndirect, temp);
+                }
+                else {
+                    // even if the member is not a ref, we still return a ptr.
+                    value_type_name = "ref " + value_type_name;
+                }
+                wip.add_bytecode(Opcode(Bytecode::refAdd, address, offsetaddr, resultaddr));
+
                 return {
-                    value.type,
+                    value_type_name,
                     lhs.is_mutable && value.is_mutable,
                     lhs.assignable && value.is_mutable,
-                    tempaddr,
+                    // always return an indirect for another to use
+                    StackAddressForward(LocMemoryIndirect, temp),
                     sizeof(size_t),
                     lhs.stack_bytes_used + value_type.size
                 };
@@ -467,6 +481,8 @@ compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
                 address.offset += value.offset;
                 std::cout << address.loc << " access offset " << value.offset << "\n";
 
+                // For non-refs, we just return the value as-is.
+                // We don't wrap into a ref.
                 return {
                     value.type,
                     lhs.is_mutable && value.is_mutable,
@@ -1040,8 +1056,9 @@ compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodT
         );
     }
     else if (!param_type.ref_type && value_type.ref_type) {
+        auto ref = get_type(value_type.ref_type.value(), wip);
         wip.add_bytecode(
-            Opcode(Bytecode::Dereference, std::get<BytecodeParam>(value.address), store_address)
+            Opcode(Bytecode::Dereference, std::get<BytecodeParam>(value.address), StackSize(LocMemoryDirect, ref.size), store_address)
         );
     }
     else if (std::get<BytecodeParam>(value.address) != store_address) {
