@@ -306,8 +306,7 @@ get_method_named(std::string name, compiler_wip& wip) {
 
 compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return);
 
-compiled_result compile_const_s32(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto s32node = std::get<Ast::ConstS32>(n->data);
+compiled_result compile_const_s32(Ast::ConstS32& s32node, compiler_wip& wip) {
     size_t address = constant<int>(s32node.num, wip);
     return {
         type_s32,
@@ -319,8 +318,7 @@ compiled_result compile_const_s32(std::shared_ptr<Ast::Node> n, compiler_wip& wi
     };
 }
 
-compiled_result compile_const_f32(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto f32node = std::get<Ast::ConstF32>(n->data);
+compiled_result compile_const_f32(Ast::ConstF32& f32node, compiler_wip& wip) {
     size_t address = constant<float>(f32node.num, wip);
     return {
         type_f32,
@@ -332,8 +330,7 @@ compiled_result compile_const_f32(std::shared_ptr<Ast::Node> n, compiler_wip& wi
     };
 }
 
-compiled_result compile_const_bool(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto bnode = std::get<Ast::ConstBool>(n->data);
+compiled_result compile_const_bool(Ast::ConstBool& bnode, compiler_wip& wip) {
     size_t address = constant<bool>(bnode.value, wip);
     return {
         type_bool,
@@ -345,8 +342,8 @@ compiled_result compile_const_bool(std::shared_ptr<Ast::Node> n, compiler_wip& w
     };
 }
 
-compiled_result compile_identifier(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto ident = std::get<Ast::Identifier>(n->data).name;
+compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
+    auto ident = n.name;
 
     for (size_t i = wip.local_variables.size(); i--;) {
         auto lv = wip.local_variables[i];
@@ -405,9 +402,7 @@ compiled_result compile_identifier(std::shared_ptr<Ast::Node> n, compiler_wip& w
     throw "Identifier not found";
 }
 
-compiled_result compile_access(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    Ast::AccessMember access = std::get<Ast::AccessMember>(n->data);
-
+compiled_result compile_access(Ast::AccessMember& access, compiler_wip& wip) {
     auto lhs = compile_node(access.container, wip, {});
     auto lhstype = wip.types.get_type(lhs.type);
     auto address = std::get<BytecodeParam>(lhs.address);
@@ -525,13 +520,11 @@ compiled_result reserve_local(std::string name, std::string type_name, bool is_m
     };
 }
 
-compiled_result compile_vardecl(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto decl = std::get<Ast::VariableDeclaration>(n->data);
+compiled_result compile_vardecl(Ast::VariableDeclaration& decl, compiler_wip& wip) {
     return reserve_local(decl.name, decl.type, decl.is_mutable, wip);
 }
 
-compiled_result compile_unaryop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
-    auto opnode = std::get<Ast::UnaryOperation>(n->data);
+compiled_result compile_unaryop(Ast::UnaryOperation& opnode, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     size_t stack = 0;
     size_t stack_start = wip.next_stack;
 
@@ -658,13 +651,11 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
     };
 }
 
-compiled_result compile_binop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
-    auto opnode = std::get<Ast::BinaryOperation>(n->data);
+compiled_result compile_binop(Ast::BinaryOperation& opnode, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
     return compile_shared_binop(opnode.lhs, opnode.rhs, opnode.op, wip, suggested_return);
 }
 
-compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto opnode = std::get<Ast::SetOperation>(n->data);
+compiled_result compile_setop(Ast::SetOperation& opnode, compiler_wip& wip) {
     compiled_result assign_value;
     size_t stack_begin = wip.next_stack;
 
@@ -715,11 +706,8 @@ compiled_result compile_setop(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     };
 }
 
-
-
-
-compiled_result compile_testbinop(std::shared_ptr<Ast::Node> n, compiler_wip& wip, size_t else_label) {
-    auto opnode = std::get<Ast::BinaryOperation>(n->data);
+// TODO: finish with && and || shortcuts
+compiled_result compile_testbinop(Ast::BinaryOperation& opnode, compiler_wip& wip, size_t else_label) {
     size_t stack = 0;
     size_t stack_start = wip.next_stack;
 
@@ -791,9 +779,7 @@ compiled_result compile_nodelist(std::vector<std::shared_ptr<Ast::Node>> nodes, 
     };
 }
 
-compiled_result compile_block(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto block = std::get<Ast::Block>(n->data);
-
+compiled_result compile_block(Ast::Block& block, compiler_wip& wip) {
     wip.local_variables.push_back({});
     auto ret = compile_nodelist(block.nodes, wip);
     wip.local_variables.pop_back();
@@ -801,16 +787,14 @@ compiled_result compile_block(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     return ret;
 }
 
-compiled_result compile_if(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto stmt = std::get<Ast::IfStmt>(n->data);
-
+compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
     size_t stack_start = wip.next_stack;
     size_t else_label = wip.next_label++;
     size_t end_label = wip.next_label++;
     size_t max_used = 0;
 
-    if (std::holds_alternative<Ast::BinaryOperation>(stmt.condition->data)) {
-        compile_testbinop(stmt.condition, wip, stmt.otherwise ? else_label : end_label);
+    if (auto* cond = std::get_if<Ast::BinaryOperation>(&stmt.condition->data)) {
+        compile_testbinop(*cond, wip, stmt.otherwise ? else_label : end_label);
     }
     else {
         auto condition = compile_node(stmt.condition, wip, {});
@@ -865,9 +849,7 @@ compiled_result compile_if(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
     };
 }
 
-compiled_result compile_dowhile(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto dowhile = std::get<Ast::DoWhile>(n->data);
-
+compiled_result compile_dowhile(Ast::DoWhile& dowhile, compiler_wip& wip) {
     size_t stack_start = wip.next_stack;
     size_t start_label = wip.next_label++;
     wip.labels[start_label] = wip.bytecodes.size();
@@ -905,13 +887,11 @@ compiled_result compile_dowhile(std::shared_ptr<Ast::Node> n, compiler_wip& wip)
     };
 }
 
-compiled_result compile_globalblock(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto block = std::get<Ast::GlobalBlock>(n->data);
+compiled_result compile_globalblock(Ast::GlobalBlock& block, compiler_wip& wip) {
     return compile_nodelist(block.nodes, wip);
 }
 
-compiled_result compile_methoddecl(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto method = std::get<Ast::MethodDeclaration>(n->data);
+compiled_result compile_methoddecl(Ast::MethodDeclaration& method, compiler_wip& wip) {
     std::cout << "Added method " << method.name << "\n";
 
     wip.method_indices[method.name] = wip.methods.size();
@@ -931,9 +911,7 @@ compiled_result compile_methoddecl(std::shared_ptr<Ast::Node> n, compiler_wip& w
     };
 }
 
-compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto method = std::get<Ast::MethodDefinition>(n->data);
-
+compiled_result compile_methoddef(Ast::MethodDefinition& method, compiler_wip& wip) {
     auto& methodinfo = get_method_named(method.name, wip);
 
     size_t start_stack = wip.next_stack;
@@ -995,8 +973,7 @@ compiled_result compile_methoddef(std::shared_ptr<Ast::Node> n, compiler_wip& wi
     };
 }
 
-compiled_result compile_return(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto ret = std::get<Ast::ReturnValue>(n->data);
+compiled_result compile_return(Ast::ReturnValue& ret, compiler_wip& wip) {
     size_t max_used = 0;
 
     if (ret.value) {
@@ -1024,8 +1001,7 @@ compiled_result compile_return(std::shared_ptr<Ast::Node> n, compiler_wip& wip) 
     };
 }
 
-compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodTypeParameter type, compiler_wip& wip) {
-    auto param = std::get<Ast::CallParam>(n->data);
+compiled_result compile_methodparam(Ast::CallParam& param, Types::MethodTypeParameter type, compiler_wip& wip) {
     // but how do I make sure I append to the END of the stack.
     // if some other step makes the stack even larger, then these values are wrong.
     // call passes the new base ptr which is right at the start
@@ -1082,9 +1058,7 @@ compiled_result compile_methodparam(std::shared_ptr<Ast::Node> n, Types::MethodT
     };
 }
 
-compiled_result compile_methodcall(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
-    auto method = std::get<Ast::MethodCall>(n->data);
-
+compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
     size_t max_used = 0;
 
     auto callable = compile_node(method.callable, wip, {});
@@ -1107,7 +1081,7 @@ compiled_result compile_methodcall(std::shared_ptr<Ast::Node> n, compiler_wip& w
 
     // TODO: named params and ordering
     for (size_t i = 0; i < method.params.size(); i++) {
-        auto param = compile_methodparam(method.params[i], typeinfo.parameters[i], wip);
+        auto param = compile_methodparam(std::get<Ast::CallParam>(method.params[i]->data), typeinfo.parameters[i], wip);
         if (total_requied + param.stack_bytes_used > max_used) {
             max_used = total_requied + param.stack_bytes_used;
         }
@@ -1145,60 +1119,60 @@ compiled_result compile_methodcall(std::shared_ptr<Ast::Node> n, compiler_wip& w
     };
 }
 
-//compiled_result compile_(std::shared_ptr<Ast::Node> n, compiler_wip& wip) {
+//compiled_result compile_(Ast::blah& node, compiler_wip& wip) {
 //}
 
 compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return) {
-    if (std::holds_alternative<Ast::ConstS32>(n->data)) {
-        return compile_const_s32(n, wip);
+    if (auto* v = std::get_if<Ast::ConstS32>(&n->data)) {
+        return compile_const_s32(*v, wip);
     }
-    else if (std::holds_alternative<Ast::ConstF32>(n->data)) {
-        return compile_const_f32(n, wip);
+    else if (auto* v = std::get_if<Ast::ConstF32>(&n->data)) {
+        return compile_const_f32(*v, wip);
     }
-    else if (std::holds_alternative<Ast::ConstBool>(n->data)) {
-        return compile_const_bool(n, wip);
+    else if (auto* v = std::get_if<Ast::ConstBool>(&n->data)) {
+        return compile_const_bool(*v, wip);
     }
-    else if (std::holds_alternative<Ast::UnaryOperation>(n->data)) {
-        return compile_unaryop(n, wip, suggested_return);
+    else if (auto* v = std::get_if<Ast::UnaryOperation>(&n->data)) {
+        return compile_unaryop(*v, wip, suggested_return);
     }
-    else if (std::holds_alternative<Ast::BinaryOperation>(n->data)) {
-        return compile_binop(n, wip, suggested_return);
+    else if (auto* v = std::get_if<Ast::BinaryOperation>(&n->data)) {
+        return compile_binop(*v, wip, suggested_return);
     }
-    else if (std::holds_alternative<Ast::SetOperation>(n->data)) {
-        return compile_setop(n, wip);
+    else if (auto* v = std::get_if<Ast::SetOperation>(&n->data)) {
+        return compile_setop(*v, wip);
     }
-    else if (std::holds_alternative<Ast::Identifier>(n->data)) {
-        return compile_identifier(n, wip);
+    else if (auto* v = std::get_if<Ast::Identifier>(&n->data)) {
+        return compile_identifier(*v, wip);
     }
-    else if (std::holds_alternative<Ast::AccessMember>(n->data)) {
-        return compile_access(n, wip);
+    else if (auto* v = std::get_if<Ast::AccessMember>(&n->data)) {
+        return compile_access(*v, wip);
     }
-    else if (std::holds_alternative<Ast::VariableDeclaration>(n->data)) {
-        return compile_vardecl(n, wip);
+    else if (auto* v = std::get_if<Ast::VariableDeclaration>(&n->data)) {
+        return compile_vardecl(*v, wip);
     }
-    else if (std::holds_alternative<Ast::Block>(n->data)) {
-        return compile_block(n, wip);
+    else if (auto* v = std::get_if<Ast::Block>(&n->data)) {
+        return compile_block(*v, wip);
     }
-    else if (std::holds_alternative<Ast::GlobalBlock>(n->data)) {
-        return compile_globalblock(n, wip);
+    else if (auto* v = std::get_if<Ast::GlobalBlock>(&n->data)) {
+        return compile_globalblock(*v, wip);
     }
-    else if (std::holds_alternative<Ast::IfStmt>(n->data)) {
-        return compile_if(n, wip);
+    else if (auto* v = std::get_if<Ast::IfStmt>(&n->data)) {
+        return compile_if(*v, wip);
     }
-    else if (std::holds_alternative<Ast::DoWhile>(n->data)) {
-        return compile_dowhile(n, wip);
+    else if (auto* v = std::get_if<Ast::DoWhile>(&n->data)) {
+        return compile_dowhile(*v, wip);
     }
-    else if (std::holds_alternative<Ast::MethodDeclaration>(n->data)) {
-        return compile_methoddecl(n, wip);
+    else if (auto* v = std::get_if<Ast::MethodDeclaration>(&n->data)) {
+        return compile_methoddecl(*v, wip);
     }
-    else if (std::holds_alternative<Ast::MethodDefinition>(n->data)) {
-        return compile_methoddef(n, wip);
+    else if (auto* v = std::get_if<Ast::MethodDefinition>(&n->data)) {
+        return compile_methoddef(*v, wip);
     }
-    else if (std::holds_alternative<Ast::ReturnValue>(n->data)) {
-        return compile_return(n, wip);
+    else if (auto* v = std::get_if<Ast::ReturnValue>(&n->data)) {
+        return compile_return(*v, wip);
     }
-    else if (std::holds_alternative<Ast::MethodCall>(n->data)) {
-        return compile_methodcall(n, wip);
+    else if (auto* v = std::get_if<Ast::MethodCall>(&n->data)) {
+        return compile_methodcall(*v, wip);
     }
 
     throw "Invalid node";
