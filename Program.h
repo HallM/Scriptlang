@@ -80,9 +80,6 @@ public:
         return Callable<Ret, Args...>(*this, address, stack_size);
     }
 
-    // Register a method that is possible to be called by C++.
-    void register_method(std::string name, std::vector<std::type_index> types);
-
     // Generates a fixed stack containing all globals.
     std::shared_ptr<VMFixedStack> generate_state();
 
@@ -101,11 +98,13 @@ public:
         _constant_addresses[name] = loc;
     }
     void add_builtin(std::string name, std::shared_ptr<IRunnable> runnable);
-    void add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code);
 
     void add_code(std::vector<Opcode> code);
     void add_global_index(std::string name, size_t size, size_t addr);
-    void add_method_addr(std::string name, size_t param_size, size_t stack_size, size_t address);
+
+    // Register a method that is possible to be called by C++.
+    void register_method(std::string name, size_t address, std::vector<std::type_index> types);
+    void add_method_addr(size_t index, size_t param_size, size_t stack_size, size_t address);
 
     size_t get_global_address(std::string name) const;
     size_t get_constant_address(std::string name) const;

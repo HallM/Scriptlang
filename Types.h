@@ -71,6 +71,7 @@ public:
     ~TypeTable();
 
     const TypeInfo& get_type(std::string name) const;
+    const std::vector<std::string> type_names() const;
 
     std::string add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params);
     std::string add_struct(std::string name, std::vector<StructTypeMember> members);

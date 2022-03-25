@@ -205,9 +205,15 @@ parse_type(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 node_return
 parse_identifier(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     auto id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
+    std::vector<std::string> scopes;
+
+    while (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "::"))) {
+        scopes.push_back(id);
+        id = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
+    }
 
     std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
-    node->data = Ast::Identifier { id };
+    node->data = Ast::Identifier { scopes, id };
     return {node};
 }
 
@@ -414,6 +420,7 @@ node_return
 parse_return(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     eat_whitespace(tokens);
     std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
+    // if (token_if<Tokens::NewlineToken>(tokens)) {
     if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "void"))) {
         node->data = Ast::ReturnValue { {} };
     }
@@ -429,7 +436,7 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     //"fn", fn, ws, identifier, ws?, "(", param list ")" ws? ":" NL parse block
     eat_whitespace(tokens);
 
-    auto ident = std::get<Tokens::IdentifierToken>(tokens.pull_front()->data).identifier;
+    auto ident = std::get<Ast::Identifier>(parse_identifier(root, tokens, wip).node->data);
     eat_whitespace(tokens);
 
     if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
@@ -490,7 +497,8 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 
     std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
     node->data = Ast::MethodDefinition{
-        ident,
+        ident.scopes,
+        ident.name,
         method_type,
         param_names,
         block.node
@@ -555,9 +563,11 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
             statements.push_back(statement.node);
 
             std::shared_ptr<Ast::Node> declnode = std::make_shared<Ast::Node>();
+            auto& mdef = std::get<Ast::MethodDefinition>(statement.node->data);
             declnode->data = Ast::MethodDeclaration{
-                std::get<Ast::MethodDefinition>(statement.node->data).name,
-                std::get<Ast::MethodDefinition>(statement.node->data).type
+                mdef.scopes,
+                mdef.name,
+                mdef.type
             };
             fndefs.push_back(declnode);
         }

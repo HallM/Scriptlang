@@ -140,6 +140,7 @@ struct labellink {
 };
 struct methodlink {
     std::string name;
+    std::vector<std::string> scopes;
 };
 
 struct compiled_result {
@@ -158,13 +159,12 @@ struct labellinkable {
     // the param (0-2) that needs to be linked
     size_t param;
     // the label to look up
-    size_t label;
+    labellink label;
 };
 struct methodlinkable {
     // the param (0-2) that needs to be linked
     size_t param;
-    // the label to look up
-    std::string method_name;
+    methodlink method;
 };
 
 struct variableinfo {
@@ -179,6 +179,7 @@ struct methodinfo {
     std::string type;
     bool return_mutable;
     bool defined;
+    size_t index;
     size_t address;
     size_t size;
     size_t param_bytes;
@@ -191,41 +192,65 @@ struct operation {
     std::optional<methodlinkable> method_link;
 };
 
+struct compilerscope {
+    // TODO: how to have starting values for globals
+    std::vector<std::unordered_map<std::string, variableinfo>> local_variables;
+    std::unordered_map<std::string, methodinfo> methods;
+    std::unordered_map<std::string, size_t> imported_method_names;
+    std::unordered_map<std::string, compilerscope> subscopes;
+
+public:
+    compilerscope() {
+        local_variables.push_back({});
+    }
+};
+
 // holds all the necessary tables as we move through the compilation step
 class compiler_wip {
 public:
-    compiler_wip(const Types::TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_const(0) {
+    compiler_wip(const Types::TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_method(0), next_const(0), rootscope(), current_scope(&rootscope) {
+        for (auto t : t.type_names()) {
+            current_scope->subscopes[t] = compilerscope();
+        }
+
         for (size_t i = 0; i < m.size(); i++) {
             Ast::ImportedMethod method = m[i];
+            auto s = get_scope(method.scopes);
             std::cout << method.name << " imported\n";
-            imported_method_names[method.name] = i;
+            s->imported_method_names[method.name] = i;
         }
     }
+
+    compilerscope* get_scope(std::vector<std::string> scopepath) {
+        compilerscope* s = current_scope;
+        for (auto& it : scopepath) {
+            s = &s->subscopes[it];
+        }
+        return s;
+    }
+
 
     void add_bytecode(Opcode oc) {
         bytecodes.push_back(operation{oc, {}, {}});
     }
 
-    void add_bytecode_linked_method(Opcode oc, std::string method_name, size_t param_index) {
-        bytecodes.push_back(operation{oc, {}, methodlinkable{param_index, method_name}});
+    void add_bytecode_linked_method(Opcode oc, methodlink method, size_t param_index) {
+        bytecodes.push_back(operation{oc, {}, methodlinkable{param_index, method}});
     }
 
-    void add_bytecode_linked_label(Opcode oc, size_t label, size_t param_index) {
+    void add_bytecode_linked_label(Opcode oc, labellink label, size_t param_index) {
         bytecodes.push_back(operation{oc, labellinkable{param_index, label}, {}});
     }
 
     const Types::TypeTable& types;
     const ImportedMethods& imported_methods;
-    std::unordered_map<std::string, size_t> imported_method_names;
 
     std::vector<operation> bytecodes;
     std::unordered_map<size_t, size_t> labels;
     size_t next_label;
 
     size_t next_stack;
-
-    // TODO: how to have starting values for globals
-    std::vector<std::unordered_map<std::string, variableinfo>> local_variables;
+    size_t next_method;
 
     std::vector<std::variant<
         float,
@@ -235,8 +260,8 @@ public:
     std::unordered_map<std::string, size_t> constant_addresses;
     size_t next_const;
 
-    std::vector<methodinfo> methods;
-    std::unordered_map<std::string, size_t> method_indices;
+    compilerscope rootscope;
+    compilerscope* current_scope;
 };
 
 bool compatible_types(const Types::TypeInfo& a, const Types::TypeInfo& b) {
@@ -298,10 +323,14 @@ size_t constant(T v, compiler_wip& wip) {
     return addr;
 }
 
-methodinfo&
-get_method_named(std::string name, compiler_wip& wip) {
-    size_t index = wip.method_indices[name];
-    return wip.methods[index];
+std::optional<methodinfo*>
+get_method_named(std::vector<std::string> scopepath, std::string name, compiler_wip& wip) {
+    auto s = wip.get_scope(scopepath);
+    auto maybe = s->methods.find(name);
+    if (maybe == s->methods.end()) {
+        return {};
+    }
+    return &s->methods[name];
 }
 
 compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, std::optional<BytecodeParam> suggested_return);
@@ -345,8 +374,10 @@ compiled_result compile_const_bool(Ast::ConstBool& bnode, compiler_wip& wip) {
 compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
     auto ident = n.name;
 
-    for (size_t i = wip.local_variables.size(); i--;) {
-        auto lv = wip.local_variables[i];
+    auto scope = wip.get_scope(n.scopes);
+
+    for (size_t i = scope->local_variables.size(); i--;) {
+        auto lv = scope->local_variables[i];
         auto it = lv.find(ident);
         if (it != lv.end()) {
             auto type = wip.types.get_type(it->second.type);
@@ -372,11 +403,11 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
         }
     }
 
-    auto maybe_method = wip.method_indices.find(ident);
-    if (maybe_method != wip.method_indices.end()) {
+    auto maybe_method = get_method_named(n.scopes, ident, wip);
+    if (maybe_method) {
         // Note that method references would be handled above.
         return {
-            wip.methods.at(maybe_method->second).type,
+            maybe_method.value()->type,
             false,
             false,
             methodlink{ident},
@@ -385,8 +416,8 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
         };
     }
 
-    auto maybe_imported = wip.imported_method_names.find(ident);
-    if (maybe_imported != wip.imported_method_names.end()) {
+    auto maybe_imported = scope->imported_method_names.find(ident);
+    if (maybe_imported != scope->imported_method_names.end()) {
         auto method = wip.imported_methods[maybe_imported->second];
         return {
             method.type,
@@ -402,7 +433,7 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
     throw "Identifier not found";
 }
 
-compiled_result compile_access(Ast::AccessMember& access, compiler_wip& wip) {
+compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wip) {
     auto lhs = compile_node(access.container, wip, {});
     auto lhstype = wip.types.get_type(lhs.type);
     auto address = std::get<BytecodeParam>(lhs.address);
@@ -494,7 +525,7 @@ compiled_result compile_access(Ast::AccessMember& access, compiler_wip& wip) {
 }
 
 compiled_result reserve_local(std::string name, std::string type_name, bool is_mutable, compiler_wip& wip) {
-    auto& loc = wip.local_variables[wip.local_variables.size() - 1];
+    auto& loc = wip.current_scope->local_variables[wip.current_scope->local_variables.size() - 1];
     if (loc.find(name) != loc.end()) {
         // TODO: shadow probably would work fine without
         throw "Ident already declared";
@@ -738,7 +769,7 @@ compiled_result compile_testbinop(Ast::BinaryOperation& opnode, compiler_wip& wi
 
     wip.add_bytecode_linked_label(
         Opcode(op.bc, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), BytecodeParam(0, 0)),
-        else_label,
+        labellink{else_label},
         2
     );
 
@@ -780,9 +811,9 @@ compiled_result compile_nodelist(std::vector<std::shared_ptr<Ast::Node>> nodes, 
 }
 
 compiled_result compile_block(Ast::Block& block, compiler_wip& wip) {
-    wip.local_variables.push_back({});
+    wip.current_scope->local_variables.push_back({});
     auto ret = compile_nodelist(block.nodes, wip);
-    wip.local_variables.pop_back();
+    wip.current_scope->local_variables.pop_back();
 
     return ret;
 }
@@ -806,7 +837,7 @@ compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
 
         wip.add_bytecode_linked_label(
             Opcode(Bytecode::bJFalse, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
-            stmt.otherwise ? else_label : end_label,
+            stmt.otherwise ? labellink{else_label} : labellink{end_label},
             1
         );
     }
@@ -823,7 +854,7 @@ compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
         // need to jump Then to the end to skip Else
         wip.add_bytecode_linked_label(
             Opcode(Bytecode::Jump, BytecodeParam(0, 0)),
-            end_label,
+            labellink{end_label},
             0
         );
 
@@ -868,7 +899,7 @@ compiled_result compile_dowhile(Ast::DoWhile& dowhile, compiler_wip& wip) {
 
     wip.add_bytecode_linked_label(
         Opcode(Bytecode::bJTrue, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
-        start_label,
+        labellink{start_label},
         1
     );
 
@@ -894,12 +925,18 @@ compiled_result compile_globalblock(Ast::GlobalBlock& block, compiler_wip& wip) 
 compiled_result compile_methoddecl(Ast::MethodDeclaration& method, compiler_wip& wip) {
     std::cout << "Added method " << method.name << "\n";
 
-    wip.method_indices[method.name] = wip.methods.size();
-    wip.methods.push_back(methodinfo{
+    auto type = wip.types.get_type(method.type);
+    auto typedata = std::get<Types::MethodType>(type.type);
+
+    wip.current_scope->methods[method.name] = methodinfo{
         method.name,
         method.type,
-        false
-    });
+        typedata.return_mutable,
+        false,
+        wip.next_method,
+        0, 0, 0, 0
+    };
+    wip.next_method++;
 
     return {
         type_empty,
@@ -912,14 +949,18 @@ compiled_result compile_methoddecl(Ast::MethodDeclaration& method, compiler_wip&
 }
 
 compiled_result compile_methoddef(Ast::MethodDefinition& method, compiler_wip& wip) {
-    auto& methodinfo = get_method_named(method.name, wip);
+    auto maybemethod = get_method_named(method.scopes, method.name, wip);
+    if (!maybemethod) {
+        throw "Method was not declared.";
+    }
+    auto minfo = maybemethod.value();
 
     size_t start_stack = wip.next_stack;
     wip.next_stack = 0;
-    wip.local_variables.push_back({});
+    wip.current_scope->local_variables.push_back({});
 
     size_t param_size = 0;
-    auto type = wip.types.get_type(methodinfo.type);
+    auto type = wip.types.get_type(minfo->type);
     auto typedata = std::get<Types::MethodType>(type.type);
 
     if (typedata.parameters.size() != method.param_names.size()) {
@@ -954,14 +995,14 @@ compiled_result compile_methoddef(Ast::MethodDefinition& method, compiler_wip& w
         }
     }
 
-    methodinfo.defined = true;
-    methodinfo.address = address;
-    methodinfo.size = wip.bytecodes.size() - address;
-    methodinfo.param_bytes = param_size;
-    methodinfo.stack_bytes = r.stack_bytes_used;
+    minfo->defined = true;
+    minfo->address = address;
+    minfo->size = wip.bytecodes.size() - address;
+    minfo->param_bytes = param_size;
+    minfo->stack_bytes = r.stack_bytes_used;
 
     wip.next_stack = start_stack;
-    wip.local_variables.pop_back();
+    wip.current_scope->local_variables.pop_back();
 
     return {
         type_empty,
@@ -1094,7 +1135,7 @@ compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
         p1 = BytecodeParam(0, 0);
         wip.add_bytecode_linked_method(
             Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base)),
-            l.name,
+            l,
             0
         );
     }
@@ -1145,7 +1186,7 @@ compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, st
         return compile_identifier(*v, wip);
     }
     else if (auto* v = std::get_if<Ast::AccessMember>(&n->data)) {
-        return compile_access(*v, wip);
+        return compile_memberaccess(*v, wip);
     }
     else if (auto* v = std::get_if<Ast::VariableDeclaration>(&n->data)) {
         return compile_vardecl(*v, wip);
@@ -1180,7 +1221,6 @@ compiled_result compile_node(std::shared_ptr<Ast::Node> n, compiler_wip& wip, st
 
 void
 generate_bytecode(std::shared_ptr<Ast::Node> ast_root, compiler_wip& wip) {
-    wip.local_variables.push_back({});
     compile_node(ast_root, wip, {});
 }
 
@@ -1225,28 +1265,29 @@ link(compiler_wip& wip) {
         if (op.method_link) {
             auto ml = op.method_link.value();
             auto& bc = op.opcode;
-            auto& method_index = wip.method_indices.at(ml.method_name);
-            if (!wip.methods[method_index].defined) {
+            auto maybe_method = get_method_named(ml.method.scopes, ml.method.name, wip);
+            if (!maybe_method || !maybe_method.value()->defined) {
                 throw "Method never defined";
             }
+            auto method = maybe_method.value();
 
             BytecodeParam linked;
-            if (_farcall_required(wip.methods[method_index].address, i)) {
-                linked = ScriptCall(LocMemoryDirect, method_index);
+            if (_farcall_required(method->address, i)) {
+                linked = ScriptCall(LocMemoryDirect, method->index);
             }
             else {
                 bc.op = Bytecode::FCall;
-                linked = _call_address(wip.methods[method_index].address, i);
+                linked = _call_address(method->address, i);
             }
 
             bc.set_parameter1(linked);
             // We don't touch the base (p2)
-            bc.set_parameter3(StackSize(LocMemoryDirect, wip.methods[method_index].stack_bytes));
+            bc.set_parameter3(StackSize(LocMemoryDirect, method->stack_bytes));
         }
         if (op.label_link) {
             auto ll = op.label_link.value();
             auto& bc = op.opcode;
-            size_t link_address = wip.labels.at(ll.label);
+            size_t link_address = wip.labels.at(ll.label.labelid);
 
             BytecodeParam linked = _jump_address(link_address, i);
             switch (ll.param) {
@@ -1267,13 +1308,13 @@ link(compiler_wip& wip) {
 void
 print_program(compiler_wip& wip) {
     std::cout << "\nGlobals:\n";
-    for (auto& m : wip.local_variables[0]) {
-        std::cout << m.first << ": addr=" << m.second.address << "\n";
-    }
+    //for (auto& m : wip.local_variables[0]) {
+    //    std::cout << m.first << ": addr=" << m.second.address << "\n";
+    //}
     std::cout << "\nMethods:\n";
-    for (auto& m : wip.methods) {
-        std::cout << m.name<< ": p=" << m.param_bytes << "; s=" << m.stack_bytes << "\n";
-    }
+    //for (auto& m : wip.methods) {
+    //    std::cout << m.name<< ": p=" << m.param_bytes << "; s=" << m.stack_bytes << "\n";
+    //}
     std::cout << "\nBytecodes:\n";
 
     size_t i = 0;
@@ -1307,6 +1348,44 @@ get_cpp_type(const Types::TypeInfo& type) {
     return {};
 }
 
+void
+add_scope_to_program(std::shared_ptr<Program> p, compilerscope& scope, compiler_wip& wip) {
+    for (auto& m : scope.local_variables[0]) {
+        auto t = wip.types.get_type(m.second.type);
+        p->add_global_index(m.first, t.size, m.second.address);
+    }
+
+    for (auto& it : scope.methods) {
+        auto& m = it.second;
+        p->add_method_addr(m.index, m.param_bytes, m.stack_bytes, m.address);
+        
+        auto& t = std::get<Types::MethodType>(wip.types.get_type(m.type).type);
+        std::vector<std::type_index> types;
+        bool has_all = true;
+        auto cpp_type = get_cpp_type(wip.types.get_type(t.return_type));
+        // methods are not registered for C++ if any type is not backed by a C++ type.
+        if (!cpp_type) {
+            continue;
+        }
+        types.push_back(cpp_type.value());
+        for (auto& p : t.parameters) {
+            cpp_type = get_cpp_type(wip.types.get_type(p.type));
+            if (!cpp_type) {
+                has_all = false;
+                break;
+            }
+            types.push_back(cpp_type.value());
+        }
+        if (has_all) {
+            p->register_method(m.name, m.address, types);
+        }
+    }
+
+    for (auto& it : scope.subscopes) {
+        add_scope_to_program(p, it.second, wip);
+    }
+}
+
 std::shared_ptr<Program>
 generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& types, const ImportedMethods& imported_methods) {
     compiler_wip wip(types, imported_methods);
@@ -1315,11 +1394,6 @@ generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& t
     print_program(wip);
 
     auto p = std::make_shared<Program>(wip.next_const);
-
-    for (auto& m : wip.local_variables[0]) {
-        auto t = wip.types.get_type(m.second.type);
-        p->add_global_index(m.first, t.size, m.second.address);
-    }
 
     for (auto& it : imported_methods) {
         p->add_builtin(it.name, it.runnable);
@@ -1346,30 +1420,7 @@ generate_bytecode(std::shared_ptr<Ast::Node> ast_root, const Types::TypeTable& t
     }
     p->add_code(bytecodes);
 
-    for (auto& m : wip.methods) {
-        p->add_method_addr(m.name, m.param_bytes, m.stack_bytes, m.address);
-        
-        auto& t = std::get<Types::MethodType>(wip.types.get_type(m.type).type);
-        std::vector<std::type_index> types;
-        bool has_all = true;
-        auto cpp_type = get_cpp_type(wip.types.get_type(t.return_type));
-        // methods are not registered for C++ if any type is not backed by a C++ type.
-        if (!cpp_type) {
-            continue;
-        }
-        types.push_back(cpp_type.value());
-        for (auto& p : t.parameters) {
-            cpp_type = get_cpp_type(wip.types.get_type(p.type));
-            if (!cpp_type) {
-                has_all = false;
-                break;
-            }
-            types.push_back(cpp_type.value());
-        }
-        if (has_all) {
-            p->register_method(m.name, types);
-        }
-    }
+    add_scope_to_program(p, wip.rootscope, wip);
 
     return p;
 }

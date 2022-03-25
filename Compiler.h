@@ -22,13 +22,15 @@ public:
         return *this;
     }
 
-    void build() {
+    StructImportBuilder<T>& build() {
         _types.imported_struct_type<T>(_name, _members);
+        return *this;
     }
 private:
     Types::TypeTable& _types;
     std::string _name;
     std::vector<Types::StructTypeMember> _members;
+    std::vector<Ast::ImportedMethod> _methods;
 };
 
 class Compiler {
@@ -48,6 +50,23 @@ public:
         std::shared_ptr<IRunnable> wrapped = std::make_shared<BuiltinRunnable<Ret, Args...>>(method);
 
         auto m = Ast::ImportedMethod{
+            {},
+            name,
+            wrapped,
+            type_name,
+            typeid(Ret),
+            { typeid(Args)... }
+        };
+        _methods.push_back(m);
+    }
+
+    template <typename Ret, typename... Args>
+    void import_scoped_method(std::string scope, std::string name, std::function<Ret(Args...)> method) {
+        std::string type_name = _types.imported_method_type<Ret, Args...>();
+        std::shared_ptr<IRunnable> wrapped = std::make_shared<BuiltinRunnable<Ret, Args...>>(method);
+
+        auto m = Ast::ImportedMethod{
+            {scope},
             name,
             wrapped,
             type_name,

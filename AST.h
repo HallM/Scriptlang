@@ -25,6 +25,7 @@ namespace Ast {
 // Linker phase will link the addresses in bytecode to produce a Program
 
 struct ImportedMethod {
+    std::vector<std::string> scopes;
     std::string name;
     std::shared_ptr<IRunnable> runnable;
     std::string type;
@@ -104,6 +105,7 @@ struct SetOperation {
 };
 
 struct Identifier {
+    std::vector<std::string> scopes;
     std::string name;
 };
 
@@ -136,10 +138,12 @@ struct DoWhile {
 };
 
 struct MethodDeclaration {
+    std::vector<std::string> scopes;
     std::string name;
     std::string type;
 };
 struct MethodDefinition {
+    std::vector<std::string> scopes;
     std::string name;
     std::string type;
     std::vector<std::string> param_names;

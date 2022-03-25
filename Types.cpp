@@ -39,6 +39,15 @@ TypeTable::get_type(std::string name) const {
     return _types.at(name);
 }
 
+const std::vector<std::string>
+TypeTable::type_names() const {
+    std::vector<std::string> v;
+    for (const auto it : _types) {
+        v.push_back(it.first);
+    }
+    return v;
+}
+
 std::string
 TypeTable::add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params) {
     std::ostringstream stream;

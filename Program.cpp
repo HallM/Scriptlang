@@ -6,11 +6,6 @@
 Program::Program(size_t const_bytes) : _globals_size(0), _constants(const_bytes) {}
 Program::~Program() {}
 
-void
-Program::register_method(std::string name, std::vector<std::type_index> types) {
-    _function_ret_params[name] = types;
-}
-
 std::shared_ptr<VMFixedStack>
 Program::generate_state() {
     auto size = globals_size();
@@ -25,13 +20,6 @@ Program::add_builtin(std::string name, std::shared_ptr<IRunnable> runnable) {
 }
 
 void
-Program::add_method(std::string name, size_t param_size, size_t stack_size, std::vector<Opcode> method_code) {
-    size_t addr = _code.size();
-    std::copy(method_code.begin(), method_code.end(), std::back_inserter(_code));
-    add_method_addr(name, param_size, stack_size, addr);
-}
-
-void
 Program::add_global_index(std::string name, size_t size, size_t addr) {
     _global_addresses[name] = addr;
     _globals_size = addr + size;
@@ -43,13 +31,20 @@ Program::add_code(std::vector<Opcode> code) {
 }
 
 void
-Program::add_method_addr(std::string name, size_t param_size, size_t stack_size, size_t address) {
+Program::register_method(std::string name, size_t address, std::vector<std::type_index> types) {
     _function_addresses[name] = address;
-    _function_metadata[address] = MethodMetadata{param_size, stack_size};
-    std::shared_ptr<IRunnable> runnable = std::make_shared<BytecodeRunnable>(address, param_size, stack_size);
-    _methods.push_back(runnable);
+    _function_ret_params[name] = types;
 }
 
+void
+Program::add_method_addr(size_t index, size_t param_size, size_t stack_size, size_t address) {
+    _function_metadata[address] = MethodMetadata{param_size, stack_size};
+    std::shared_ptr<IRunnable> runnable = std::make_shared<BytecodeRunnable>(address, param_size, stack_size);
+    if (index >= _methods.size()) {
+        _methods.resize(index + 1);
+    }
+    _methods[index] = runnable;
+}
 
 size_t
 Program::get_global_address(std::string name) const {
