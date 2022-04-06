@@ -209,10 +209,6 @@ public:
 class compiler_wip {
 public:
     compiler_wip(const Types::TypeTable& t, const ImportedMethods& m) : types(t), imported_methods(m), next_label(0), next_stack(0), next_method(0), next_const(0), rootscope(), current_scope(&rootscope) {
-        for (auto t : t.type_names()) {
-            current_scope->subscopes[t] = compilerscope();
-        }
-
         for (size_t i = 0; i < m.size(); i++) {
             Ast::ImportedMethod method = m[i];
             auto s = get_scope(method.scopes);
@@ -224,6 +220,10 @@ public:
     compilerscope* get_scope(std::vector<std::string> scopepath) {
         compilerscope* s = current_scope;
         for (auto& it : scopepath) {
+            auto maybe = s->subscopes.find(it);
+            if (maybe == s->subscopes.end()) {
+                s->subscopes[it] = compilerscope();
+            }
             s = &s->subscopes[it];
         }
         return s;
@@ -630,7 +630,8 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
         throw "Incompatible types";
     }
 
-    auto optable = binary_opcode(lhs_ret.type);
+    auto lhstypeinfo = get_type(lhs_ret.type, wip);
+    auto optable = binary_opcode(lhstypeinfo.ref_type.value_or(lhstypeinfo.name));
     auto maybeOp = optable.find(operation);
     if (maybeOp == optable.end()) {
         throw "Operator not supported by type";

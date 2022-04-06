@@ -62,6 +62,139 @@
 // Nothing more is needed. C++ already can do invoke on a class method.
 //
 
+#define ALU_NUMERICALMETHODS(vmtype,realtype) \
+        case Bytecode::##vmtype##Set: { \
+            _setv<realtype>(constants, globals, _getv<realtype>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2); \
+            break; \
+        } \
+        case Bytecode::##vmtype##SetFromIndexed: { \
+            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2); \
+            char* p = _getptr<char>(constants, globals, oc.l1, oc.p1); \
+            p += offset; \
+            realtype v = *((realtype*)p); \
+            _setv<realtype>(constants, globals, v, oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##SetIntoIndexed: { \
+            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2); \
+            realtype v = _getv<realtype>(constants, globals, oc.l1, oc.p1); \
+            char* p = _getptr<char>(constants, globals, oc.l3, oc.p3); \
+            p += offset; \
+            realtype* ptr = (realtype*)p; \
+            *ptr = v; \
+            break; \
+        } \
+        case Bytecode::##vmtype##Add: { \
+            _setv<realtype>(constants, globals, aluadd<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Sub: { \
+            _setv<realtype>(constants, globals, alusub<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Mul: { \
+            _setv<realtype>(constants, globals, alumul<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Div: { \
+            _setv<realtype>(constants, globals, aludiv<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Negate: { \
+            _setv<realtype>(constants, globals, aluneg<realtype>(constants, globals, oc) , oc.l2, oc.p2); \
+            break; \
+        }
+
+#define ALU_COMPARISONMETHODS(vmtype,realtype) \
+        case Bytecode::##vmtype##Less: { \
+            _setv<bool>(constants, globals, lt<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##LessEqual: { \
+            _setv<bool>(constants, globals, le<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Greater: { \
+            _setv<bool>(constants, globals, gt<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##GreaterEqual: { \
+            _setv<bool>(constants, globals, ge<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Equal: { \
+            _setv<bool>(constants, globals, eq<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##NotEqual: { \
+            _setv<bool>(constants, globals, ne<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        }
+
+#define ALU_JUMPMETHODS(vmtype,realtype) \
+        case Bytecode::##vmtype##JLT: { \
+            if (lt<realtype>(constants, globals, oc)) { \
+                _jump(constants, globals, oc.l3, oc.p3); \
+            } \
+            break; \
+        } \
+        case Bytecode::##vmtype##JLE: { \
+            if (le<realtype>(constants, globals, oc)) { \
+                _jump(constants, globals, oc.l3, oc.p3); \
+            } \
+            break; \
+        } \
+        case Bytecode::##vmtype##JGT: { \
+            if (gt<realtype>(constants, globals, oc)) { \
+                _jump(constants, globals, oc.l3, oc.p3); \
+            } \
+            break; \
+        } \
+        case Bytecode::##vmtype##JGE: { \
+            if (ge<realtype>(constants, globals, oc)) { \
+                _jump(constants, globals, oc.l3, oc.p3); \
+            } \
+            break; \
+        } \
+        case Bytecode::##vmtype##JEQ: { \
+            if (eq<realtype>(constants, globals, oc)) { \
+                _jump(constants, globals, oc.l3, oc.p3); \
+            } \
+            break; \
+        } \
+        case Bytecode::##vmtype##JNE: { \
+            if (ne<realtype>(constants, globals, oc)) { \
+                _jump(constants, globals, oc.l3, oc.p3); \
+            } \
+            break; \
+        }
+
+#define ALU_BITWISEMETHODS(vmtype,realtype) \
+        case Bytecode::##vmtype##BitNot: { \
+            _setv<realtype>(constants, globals, alubitnot<realtype>(constants, globals, oc) , oc.l2, oc.p2); \
+            break; \
+        } \
+        case Bytecode::##vmtype##BitAnd: { \
+            _setv<realtype>(constants, globals, alubitand<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##BitOr: { \
+            _setv<realtype>(constants, globals, alubitor<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##BitXor: { \
+            _setv<realtype>(constants, globals, alubitxor<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##ShiftLeft: { \
+            _setv<realtype>(constants, globals, alubitshl<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##ShiftRight: { \
+            _setv<realtype>(constants, globals, alubitshr<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        }
+
 VM::VM(size_t stack_size)
     : data(stack_size), _exec_stack(1<<16), _instruction_index(0), _base(0)
 {
@@ -211,163 +344,14 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
             break;
         }
     
-        case Bytecode::f32Set: {
-            _setv<float>(constants, globals, _getv<float>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
-            break;
-        }
-        case Bytecode::f32SetFromIndexed: {
-            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-            char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
-            p += offset;
-            float v = *((float*)p);
-            _setv<float>(constants, globals, v, oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32SetIntoIndexed: {
-            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-            float v = _getv<float>(constants, globals, oc.l1, oc.p1);
+        ALU_NUMERICALMETHODS(f32,float)
+        ALU_COMPARISONMETHODS(f32,float)
+        ALU_JUMPMETHODS(f32,float)
 
-            char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
-            p += offset;
-            float* ptr = (float*)p;
-            *ptr = v;
-            break;
-        }
-        case Bytecode::f32Add: {
-            _setv<float>(constants, globals, aluadd<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Sub: {
-            _setv<float>(constants, globals, alusub<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Mul: {
-            _setv<float>(constants, globals, alumul<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Div: {
-            _setv<float>(constants, globals, aludiv<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Less: {
-            _setv<bool>(constants, globals, lt<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32LessEqual: {
-            _setv<bool>(constants, globals, le<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Greater: {
-            _setv<bool>(constants, globals, gt<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32GreaterEqual: {
-            _setv<bool>(constants, globals, ge<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Equal: {
-            _setv<bool>(constants, globals, eq<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32NotEqual: {
-            _setv<bool>(constants, globals, ne<float>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::f32Negate: {
-            _setv<float>(constants, globals, aluneg<float>(constants, globals, oc) , oc.l2, oc.p2);
-            break;
-        }
-
-        case Bytecode::s32Set: {
-            _setv<int>(constants, globals, _getv<int>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2);
-            break;
-        }
-        case Bytecode::s32SetFromIndexed: {
-            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-            char* p = _getptr<char>(constants, globals, oc.l1, oc.p1);
-            p += offset;
-            int v = *((int*)p);
-            _setv<int>(constants, globals, v, oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32SetIntoIndexed: {
-            size_t offset = _getv<int>(constants, globals, oc.l2, oc.p2);
-            int v = _getv<int>(constants, globals, oc.l1, oc.p1);
-
-            char* p = _getptr<char>(constants, globals, oc.l3, oc.p3);
-            p += offset;
-            int* ptr = (int*)p;
-            *ptr = v;
-            break;
-        }
-        case Bytecode::s32Add: {
-            _setv<int>(constants, globals, aluadd<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Sub: {
-            _setv<int>(constants, globals, alusub<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Mul: {
-            _setv<int>(constants, globals, alumul<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Div: {
-            _setv<int>(constants, globals, aludiv<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Less: {
-            _setv<bool>(constants, globals, lt<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32LessEqual: {
-            _setv<bool>(constants, globals, le<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Greater: {
-            _setv<bool>(constants, globals, gt<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32GreaterEqual: {
-            _setv<bool>(constants, globals, ge<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Equal: {
-            _setv<bool>(constants, globals, eq<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32NotEqual: {
-            _setv<bool>(constants, globals, ne<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32Negate: {
-            _setv<int>(constants, globals, aluneg<int>(constants, globals, oc) , oc.l2, oc.p2);
-            break;
-        }
-        case Bytecode::s32BitNot: {
-            _setv<int>(constants, globals, alubitnot<int>(constants, globals, oc) , oc.l2, oc.p2);
-            break;
-        }
-        case Bytecode::s32BitAnd: {
-            _setv<int>(constants, globals, alubitand<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32BitOr: {
-            _setv<int>(constants, globals, alubitor<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32BitXor: {
-            _setv<int>(constants, globals, alubitxor<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32ShiftLeft: {
-            _setv<int>(constants, globals, alubitshl<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::s32ShiftRight: {
-            _setv<int>(constants, globals, alubitshr<int>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
+        ALU_NUMERICALMETHODS(s32,int)
+        ALU_COMPARISONMETHODS(s32,int)
+        ALU_JUMPMETHODS(s32,int)
+        ALU_BITWISEMETHODS(s32,int)
 
         case Bytecode::bAnd: {
             bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) && _getv<bool>(constants, globals, oc.l2, oc.p2);
@@ -454,81 +438,6 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         case Bytecode::bJFalse: {
             if (!_getv<bool>(constants, globals, oc.l1, oc.p1)) {
                 _jump(constants, globals, oc.l2, oc.p2);
-            }
-            break;
-        }
-
-        case Bytecode::f32JLT: {
-            if (lt<float>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::f32JLE: {
-            if (le<float>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::f32JGT: {
-            if (gt<float>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::f32JGE: {
-            if (ge<float>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::f32JEQ: {
-            if (eq<float>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::f32JNE: {
-            if (ne<float>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-
-
-        case Bytecode::s32JLT: {
-            if (lt<int>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::s32JLE: {
-            if (le<int>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::s32JGT: {
-            if (gt<int>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::s32JGE: {
-            if (ge<int>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::s32JEQ: {
-            if (eq<int>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
-            }
-            break;
-        }
-        case Bytecode::s32JNE: {
-            if (ne<int>(constants, globals, oc)) {
-                _jump(constants, globals, oc.l3, oc.p3);
             }
             break;
         }
