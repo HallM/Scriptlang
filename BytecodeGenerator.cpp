@@ -43,29 +43,6 @@ const std::string type_bool = "bool";
 const std::string type_s32 = "s32";
 const std::string type_f32 = "f32";
 
-struct operinfo {
-    Bytecode bc;
-    std::string type_returned;
-};
-
-std::unordered_map<Ast::UnaryOps, operinfo> unary_opcode(std::string type) {
-    if (type == type_s32) {
-        return {
-            {Ast::UnaryOps::Negate, {Bytecode::s32Negate, type_s32}},
-            {Ast::UnaryOps::BitNot, {Bytecode::s32BitNot, type_s32}},
-        };
-    } else if (type == type_f32) {
-        return {
-            {Ast::UnaryOps::Negate, {Bytecode::f32Negate, type_f32}},
-        };
-    } else if (type == type_bool) {
-        return {
-            {Ast::UnaryOps::Not, {Bytecode::bNot, type_bool}},
-        };
-    }
-    return {};
-}
-
 std::unordered_map<Ast::BinaryOps, Bytecode> jump_opcode(std::string type) {
     // so these have to be the inverse to work right.
     if (type == type_s32) {
@@ -240,21 +217,21 @@ bool compatible_types_by_name(std::string a, std::string b, compiler_wip& wip) {
     return compatible_types(get_type(a, wip), get_type(b, wip));
 }
 
-operinfo assignment_opcode(std::string type_name, compiler_wip& wip) {
+Bytecode assignment_opcode(std::string type_name, compiler_wip& wip) {
     auto type = get_type(type_name, wip);
     if (type.ref_type) {
-        return {Bytecode::refSet, type_bool};
+        return Bytecode::refSet;
     }
     if (std::holds_alternative<Types::PrimitiveType>(type.type)) {
         auto prim = std::get<Types::PrimitiveType>(type.type);
         if (prim == Types::PrimitiveType::s32) {
-            return {Bytecode::s32Set, type_bool};
+            return Bytecode::s32Set;
         }
         else if (prim == Types::PrimitiveType::f32) {
-            return {Bytecode::f32Set, type_bool};
+            return Bytecode::f32Set;
         }
         else if (prim == Types::PrimitiveType::boolean) {
-            return {Bytecode::s32Set, type_bool};
+            return Bytecode::s32Set;
         }
     }
 
@@ -519,13 +496,16 @@ compiled_result compile_unaryop(Ast::UnaryOperation& opnode, compiler_wip& wip, 
     auto value_ret = compile_node(opnode.value, wip, {});
     total_used = value_ret.stack_bytes_used;
 
-    auto optable = unary_opcode(value_ret.type);
-    auto maybeOp = optable.find(opnode.op);
-    if (maybeOp == optable.end()) {
-        throw "Unary Operator not supported by type";
+    auto lhstypeinfo = get_type(value_ret.type, wip);
+    if (lhstypeinfo.ref_type) {
+        lhstypeinfo = get_type(lhstypeinfo.ref_type.value(), wip);
     }
-    auto op = maybeOp->second;
-    auto optype = maybeOp->second.type_returned;
+    auto maybeOp = lhstypeinfo.unary_operators.find(opnode.op);
+    if (maybeOp == lhstypeinfo.unary_operators.end()) {
+        throw "Operator not supported by type";
+    }
+    auto op = maybeOp->second.method;
+    auto optype = maybeOp->second.return_type;
 
     BytecodeParam ret;
     if (suggested_return) {
@@ -545,9 +525,15 @@ compiled_result compile_unaryop(Ast::UnaryOperation& opnode, compiler_wip& wip, 
         total_used += size;
     }
 
-    wip.add_bytecode(
-        Opcode(op.bc, std::get<BytecodeParam>(value_ret.address), ret)
-    );
+    if (std::holds_alternative<Types::TypeOperatorBytecode>(op)) {
+        auto bc = std::get<Types::TypeOperatorBytecode>(op).bytecode;
+        wip.add_bytecode(
+            Opcode(bc, std::get<BytecodeParam>(value_ret.address), ret)
+        );
+    }
+    else {
+        throw "Calling operators is not supported yet";
+    }
     // can free all unused stack for other ops now
     wip.next_stack = stack_start + stack;
 
@@ -683,9 +669,9 @@ compiled_result compile_setop(Ast::SetOperation& opnode, compiler_wip& wip) {
     }
 
     if (from_address != assign_address) {
-        auto opinfo = assignment_opcode(optype, wip);
+        auto opcode = assignment_opcode(optype, wip);
         wip.add_bytecode(
-            Opcode(opinfo.bc, from_address, assign_address)
+            Opcode(opcode, from_address, assign_address)
         );
     }
     // can free all stack since the result is stored
@@ -985,9 +971,9 @@ compiled_result compile_return(Ast::ReturnValue& ret, compiler_wip& wip) {
         max_used = value.stack_bytes_used;
 
         if (ret_address != std::get<BytecodeParam>(value.address)) {
-            auto opinfo = assignment_opcode(value.type, wip);
+            auto opcode = assignment_opcode(value.type, wip);
             wip.add_bytecode(
-                Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), StackAddressForward(LocMemoryDirect, 0))
+                Opcode(opcode, std::get<BytecodeParam>(value.address), StackAddressForward(LocMemoryDirect, 0))
             );
         }
     }
@@ -1041,9 +1027,9 @@ compiled_result compile_methodparam(Ast::CallParam& param, Types::MethodTypePara
         );
     }
     else if (std::get<BytecodeParam>(value.address) != store_address) {
-        auto opinfo = assignment_opcode(value.type, wip);
+        auto opcode = assignment_opcode(value.type, wip);
         wip.add_bytecode(
-            Opcode(opinfo.bc, std::get<BytecodeParam>(value.address), store_address)
+            Opcode(opcode, std::get<BytecodeParam>(value.address), store_address)
         );
         total_used += typeinfo.size;
     }

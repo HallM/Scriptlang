@@ -70,6 +70,11 @@ struct TypeBinaryOperator {
     std::string return_type;
     std::variant<TypeOperatorBytecode, TypeOperatorCall> method;
 };
+struct TypeUnaryOperator {
+    std::string item_type;
+    std::string return_type;
+    std::variant<TypeOperatorBytecode, TypeOperatorCall> method;
+};
 
 struct TypeInfo {
     std::string name;
@@ -80,6 +85,7 @@ struct TypeInfo {
     std::optional<std::type_index> backing_type;
     std::unordered_map<std::string, std::string> methods;
     std::unordered_map<Ast::BinaryOps, TypeBinaryOperator> binary_operators;
+    std::unordered_map<Ast::UnaryOps, TypeUnaryOperator> unary_operators;
 };
 
 class TypeTable {

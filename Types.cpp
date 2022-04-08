@@ -47,6 +47,9 @@ TypeTable::TypeTable() {
             {Ast::BinaryOps::Or, TypeBinaryOperator{ "bool", "bool", "bool", TypeOperatorBytecode{Bytecode::bOr} }},
             {Ast::BinaryOps::Eq, TypeBinaryOperator{ "bool", "bool", "bool", TypeOperatorBytecode{Bytecode::bEqual} }},
             {Ast::BinaryOps::NotEq, TypeBinaryOperator{ "bool", "bool", "bool", TypeOperatorBytecode{Bytecode::bNotEqual} }},
+        },
+        {
+            {Ast::UnaryOps::Not, TypeUnaryOperator{ "bool", "bool", TypeOperatorBytecode{Bytecode::bNot} }},
         }
     };
     _types["s32"] = TypeInfo{
@@ -56,6 +59,10 @@ TypeTable::TypeTable() {
             NUMERICAL_OPERATORS(s32)
             COMPARE_OPERATORS(s32)
             BITWISE_OPERATORS(s32)
+        },
+        {
+            {Ast::UnaryOps::Negate, TypeUnaryOperator{ "s32", "s32", TypeOperatorBytecode{Bytecode::s32Negate} }},
+            {Ast::UnaryOps::BitNot, TypeUnaryOperator{ "s32", "s32", TypeOperatorBytecode{Bytecode::s32BitNot} }},
         }
     };
     _types["f32"] = TypeInfo{
@@ -64,6 +71,9 @@ TypeTable::TypeTable() {
         {
             NUMERICAL_OPERATORS(f32)
             COMPARE_OPERATORS(f32)
+        },
+        {
+            {Ast::UnaryOps::Negate, TypeUnaryOperator{ "f32", "f32", TypeOperatorBytecode{Bytecode::f32Negate} }},
         }
     };
     _types["ref bool"] = TypeInfo{"ref bool", "bool", runtimesizeof<bool*>(), PrimitiveType::boolean, typeid(bool*)};
