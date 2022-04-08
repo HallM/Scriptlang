@@ -9,6 +9,9 @@
 #include <variant>
 #include <vector>
 
+#include "AST.h"
+#include "VMBytecode.h"
+
 namespace MattScript {
 namespace Types {
 
@@ -55,6 +58,19 @@ struct MethodType {
     std::vector<MethodTypeParameter> parameters;
 };
 
+struct TypeOperatorBytecode {
+    Bytecode bytecode;
+};
+struct TypeOperatorCall {
+    std::string method_name;
+};
+struct TypeBinaryOperator {
+    std::string lhs_type;
+    std::string rhs_type;
+    std::string return_type;
+    std::variant<TypeOperatorBytecode, TypeOperatorCall> method;
+};
+
 struct TypeInfo {
     std::string name;
     // if this type is a reference type, this will be set to the type it refers to.
@@ -63,6 +79,7 @@ struct TypeInfo {
     std::variant<PrimitiveType, StructType, MethodType> type;
     std::optional<std::type_index> backing_type;
     std::unordered_map<std::string, std::string> methods;
+    std::unordered_map<Ast::BinaryOps, TypeBinaryOperator> binary_operators;
 };
 
 class TypeTable {

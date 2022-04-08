@@ -8,7 +8,6 @@
 #include <variant>
 #include <vector>
 
-#include "Types.h"
 #include "VMFFI.h"
 
 namespace MattScript {

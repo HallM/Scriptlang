@@ -48,51 +48,6 @@ struct operinfo {
     std::string type_returned;
 };
 
-std::unordered_map<Ast::BinaryOps, operinfo> binary_opcode(std::string type) {
-    if (type == type_s32) {
-        return {
-            {Ast::BinaryOps::Add, {Bytecode::s32Add, type_s32}},
-            {Ast::BinaryOps::Subtract, {Bytecode::s32Sub, type_s32}},
-            {Ast::BinaryOps::Multiply, {Bytecode::s32Mul, type_s32}},
-            {Ast::BinaryOps::Divide, {Bytecode::s32Div, type_s32}},
-            {Ast::BinaryOps::Modulo, {Bytecode::s32Mod, type_s32}},
-            {Ast::BinaryOps::Eq, {Bytecode::s32Equal, type_bool}},
-            {Ast::BinaryOps::NotEq, {Bytecode::s32NotEqual, type_bool}},
-            {Ast::BinaryOps::Less, {Bytecode::s32Less, type_bool}},
-            {Ast::BinaryOps::LessEqual, {Bytecode::s32LessEqual, type_bool}},
-            {Ast::BinaryOps::Greater, {Bytecode::s32Greater, type_bool}},
-            {Ast::BinaryOps::GreaterEqual, {Bytecode::s32GreaterEqual, type_bool}},
-            {Ast::BinaryOps::BitShiftLeft, {Bytecode::s32ShiftLeft, type_s32}},
-            {Ast::BinaryOps::BitShiftRight, {Bytecode::s32ShiftRight, type_s32}},
-            {Ast::BinaryOps::BitAnd, {Bytecode::s32BitAnd, type_s32}},
-            {Ast::BinaryOps::BitOr, {Bytecode::s32BitOr, type_s32}},
-            {Ast::BinaryOps::BitXor, {Bytecode::s32BitXor, type_s32}},
-        };
-    } else if (type == type_f32) {
-        return {
-            {Ast::BinaryOps::Add, {Bytecode::f32Add, type_f32}},
-            {Ast::BinaryOps::Subtract, {Bytecode::f32Sub, type_f32}},
-            {Ast::BinaryOps::Multiply, {Bytecode::f32Mul, type_f32}},
-            {Ast::BinaryOps::Divide, {Bytecode::f32Div, type_f32}},
-            {Ast::BinaryOps::Modulo, {Bytecode::f32Mod, type_f32}},
-            {Ast::BinaryOps::Eq, {Bytecode::f32Equal, type_bool}},
-            {Ast::BinaryOps::NotEq, {Bytecode::f32NotEqual, type_bool}},
-            {Ast::BinaryOps::Less, {Bytecode::f32Less, type_bool}},
-            {Ast::BinaryOps::LessEqual, {Bytecode::f32LessEqual, type_bool}},
-            {Ast::BinaryOps::Greater, {Bytecode::f32Greater, type_bool}},
-            {Ast::BinaryOps::GreaterEqual, {Bytecode::f32GreaterEqual, type_bool}},
-        };
-    } else if (type == type_bool) {
-        return {
-            {Ast::BinaryOps::And, {Bytecode::bAnd, type_bool}},
-            {Ast::BinaryOps::Or, {Bytecode::bOr, type_bool}},
-            {Ast::BinaryOps::Eq, {Bytecode::bEqual, type_bool}},
-            {Ast::BinaryOps::NotEq, {Bytecode::bNotEqual, type_bool}},
-        };
-    }
-    return {};
-}
-
 std::unordered_map<Ast::UnaryOps, operinfo> unary_opcode(std::string type) {
     if (type == type_s32) {
         return {
@@ -111,25 +66,25 @@ std::unordered_map<Ast::UnaryOps, operinfo> unary_opcode(std::string type) {
     return {};
 }
 
-std::unordered_map<Ast::BinaryOps, operinfo> jump_opcode(std::string type) {
+std::unordered_map<Ast::BinaryOps, Bytecode> jump_opcode(std::string type) {
     // so these have to be the inverse to work right.
     if (type == type_s32) {
         return {
-            {Ast::BinaryOps::Eq, {Bytecode::s32JNE, type_bool}},
-            {Ast::BinaryOps::NotEq, {Bytecode::s32JEQ, type_bool}},
-            {Ast::BinaryOps::Less, {Bytecode::s32JGE, type_bool}},
-            {Ast::BinaryOps::LessEqual, {Bytecode::s32JGT, type_bool}},
-            {Ast::BinaryOps::Greater, {Bytecode::s32JLE, type_bool}},
-            {Ast::BinaryOps::GreaterEqual, {Bytecode::s32JLT, type_bool}},
+            {Ast::BinaryOps::Eq, Bytecode::s32JNE},
+            {Ast::BinaryOps::NotEq, Bytecode::s32JEQ},
+            {Ast::BinaryOps::Less, Bytecode::s32JGE},
+            {Ast::BinaryOps::LessEqual, Bytecode::s32JGT},
+            {Ast::BinaryOps::Greater, Bytecode::s32JLE},
+            {Ast::BinaryOps::GreaterEqual, Bytecode::s32JLT},
         };
     } else if (type == type_f32) {
         return {
-            {Ast::BinaryOps::Eq, {Bytecode::f32JNE, type_bool}},
-            {Ast::BinaryOps::NotEq, {Bytecode::f32JEQ, type_bool}},
-            {Ast::BinaryOps::Less, {Bytecode::f32JGE, type_bool}},
-            {Ast::BinaryOps::LessEqual, {Bytecode::f32JGT, type_bool}},
-            {Ast::BinaryOps::Greater, {Bytecode::f32JLE, type_bool}},
-            {Ast::BinaryOps::GreaterEqual, {Bytecode::f32JLT, type_bool}},
+            {Ast::BinaryOps::Eq, Bytecode::f32JNE},
+            {Ast::BinaryOps::NotEq, Bytecode::f32JEQ},
+            {Ast::BinaryOps::Less, Bytecode::f32JGE},
+            {Ast::BinaryOps::LessEqual, Bytecode::f32JGT},
+            {Ast::BinaryOps::Greater, Bytecode::f32JLE},
+            {Ast::BinaryOps::GreaterEqual, Bytecode::f32JLT},
         };
     }
     return {};
@@ -631,13 +586,15 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
     }
 
     auto lhstypeinfo = get_type(lhs_ret.type, wip);
-    auto optable = binary_opcode(lhstypeinfo.ref_type.value_or(lhstypeinfo.name));
-    auto maybeOp = optable.find(operation);
-    if (maybeOp == optable.end()) {
+    if (lhstypeinfo.ref_type) {
+        lhstypeinfo = get_type(lhstypeinfo.ref_type.value(), wip);
+    }
+    auto maybeOp = lhstypeinfo.binary_operators.find(operation);
+    if (maybeOp == lhstypeinfo.binary_operators.end()) {
         throw "Operator not supported by type";
     }
-    auto op = maybeOp->second;
-    auto optype = maybeOp->second.type_returned;
+    auto op = maybeOp->second.method;
+    auto optype = maybeOp->second.return_type;
 
     // TODO: there is one more re-use case I hadnt thought before:
     // we could reuse params / stack elements.
@@ -666,9 +623,15 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
         total_used += size;
     }
 
-    wip.add_bytecode(
-        Opcode(op.bc, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), ret)
-    );
+    if (std::holds_alternative<Types::TypeOperatorBytecode>(op)) {
+        auto bc = std::get<Types::TypeOperatorBytecode>(op).bytecode;
+        wip.add_bytecode(
+            Opcode(bc, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), ret)
+        );
+    }
+    else {
+        throw "Calling operators is not supported yet";
+    }
     // can free all unused stack for other ops now
     wip.next_stack = stack_start + stack;
 
@@ -765,11 +728,9 @@ compiled_result compile_testbinop(Ast::BinaryOperation& opnode, compiler_wip& wi
     if (maybeOp == optable.end()) {
         throw "Operator not supported by type";
     }
-    auto op = maybeOp->second;
-    auto optype = maybeOp->second.type_returned;
 
     wip.add_bytecode_linked_label(
-        Opcode(op.bc, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), BytecodeParam(0, 0)),
+        Opcode(maybeOp->second, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), BytecodeParam(0, 0)),
         labellink{else_label},
         2
     );
