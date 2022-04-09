@@ -150,6 +150,10 @@ binding_power(Tokens::OperatorToken token) {
         return {31, 32};
     }
 
+    else if (token.oper == "(") {
+        return {31, 32};
+    }
+
     return {-1, -1};
 }
 Ast::BinaryOps
@@ -268,7 +272,20 @@ parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min
     while (!tokens.empty()) {
         eat_whitespace(tokens);
 
-        if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
+        auto maybe = peek_if<Tokens::OperatorToken>(tokens);
+        if (!maybe) {
+            break;
+        }
+        auto token = maybe.value();
+
+        auto [lbp, rpb] = binding_power(token);
+        if (lbp < min_power) {
+            break;
+        }
+        tokens.pull_front();
+        eat_whitespace(tokens);
+
+        if (token.oper == "(") {
             std::cout << "Call method\n";
             std::vector<std::shared_ptr<Ast::Node>> params;
 
@@ -290,22 +307,11 @@ parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min
             }
 
             std::shared_ptr<Ast::Node> callnode = std::make_shared<Ast::Node>();
+            std::cout << "Done with fn call\n";
             callnode->data = Ast::MethodCall { lhs, params };
             lhs = callnode;
+            continue;
         }
-
-        auto maybe = peek_if<Tokens::OperatorToken>(tokens);
-        if (!maybe) {
-            break;
-        }
-        auto token = maybe.value();
-
-        auto [lbp, rpb] = binding_power(token);
-        if (lbp < min_power) {
-            break;
-        }
-        tokens.pull_front();
-        eat_whitespace(tokens);
 
         std::shared_ptr<Ast::Node> rhs = parse_expression(root, tokens, wip, rpb).node;
         eat_whitespace(tokens);
@@ -326,6 +332,7 @@ parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min
         lhs = node;
     }
     eat_whitespace(tokens);
+    std::cout << "Done with expression\n";
     return {lhs};
 }
 

@@ -303,6 +303,37 @@ compiled_result compile_const_bool(Ast::ConstBool& bnode, compiler_wip& wip) {
     };
 }
 
+std::optional<compiled_result>
+find_method(std::vector<std::string> scope_names, std::string ident, compiler_wip& wip) {
+    auto maybe_method = get_method_named(scope_names, ident, wip);
+    if (maybe_method) {
+        // Note that method references would be handled above.
+        return compiled_result{
+            maybe_method.value()->type,
+            false,
+            false,
+            methodlink{ident},
+            0,
+            0
+        };
+    }
+
+    auto scope = wip.get_scope(scope_names);
+    auto maybe_imported = scope->imported_method_names.find(ident);
+    if (maybe_imported != scope->imported_method_names.end()) {
+        auto method = wip.imported_methods[maybe_imported->second];
+        return compiled_result{
+            method.type,
+            false,
+            false,
+            ExternalCall(LocMemoryDirect, maybe_imported->second),
+            0,
+            0
+        };
+    }
+    return {};
+}
+
 compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
     auto ident = n.name;
 
@@ -335,30 +366,9 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
         }
     }
 
-    auto maybe_method = get_method_named(n.scopes, ident, wip);
+    auto maybe_method = find_method(n.scopes, ident, wip);
     if (maybe_method) {
-        // Note that method references would be handled above.
-        return {
-            maybe_method.value()->type,
-            false,
-            false,
-            methodlink{ident},
-            0,
-            0
-        };
-    }
-
-    auto maybe_imported = scope->imported_method_names.find(ident);
-    if (maybe_imported != scope->imported_method_names.end()) {
-        auto method = wip.imported_methods[maybe_imported->second];
-        return {
-            method.type,
-            false,
-            false,
-            ExternalCall(LocMemoryDirect, maybe_imported->second),
-            0,
-            0
-        };
+        return maybe_method.value();
     }
 
     std::cout << ident << " not found\n";
@@ -401,54 +411,72 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
         auto structinfo = std::get<Types::StructType>(lhstype.type);
         if (std::holds_alternative<Ast::Identifier>(access.member->data)) {
             std::string name = std::get<Ast::Identifier>(access.member->data).name;
-            auto value = structinfo.members.at(name);
-            auto value_type = get_type(value.type, wip);
+            auto maybe_value = structinfo.members.find(name);
+            if (maybe_value != structinfo.members.end()) {
+                auto value = maybe_value->second;
+                auto value_type = get_type(value.type, wip);
 
-            if (lhstype.ref_type) {
-                // TODO: could we save stack by re-using space here?
-                // we create a new ptr to the value by doing a sizet add.
-                size_t temp = wip.next_stack;
-                wip.next_stack += sizeof(size_t);
-                auto offsetaddr = ConstantAddress(LocMemoryDirect, constant<size_t>(value.offset, wip));
+                if (lhstype.ref_type) {
+                    // TODO: could we save stack by re-using space here?
+                    // we create a new ptr to the value by doing a sizet add.
+                    size_t temp = wip.next_stack;
+                    wip.next_stack += sizeof(size_t);
+                    auto offsetaddr = ConstantAddress(LocMemoryDirect, constant<size_t>(value.offset, wip));
 
-                // the result of an access to a ref is always a ref.
-                // We set the direct/indirect loc of dest/P2 of the bytecode to signify the VM needs to deref.
-                auto resultaddr = StackAddressForward(LocMemoryDirect, temp);
-                std::string value_type_name = value.type;
-                if (value_type.ref_type) {
-                    // if the member is a ref, we need to deref the first to not return a double-ptr.
-                    resultaddr = StackAddressForward(LocMemoryIndirect, temp);
+                    // the result of an access to a ref is always a ref.
+                    // We set the direct/indirect loc of dest/P2 of the bytecode to signify the VM needs to deref.
+                    auto resultaddr = StackAddressForward(LocMemoryDirect, temp);
+                    std::string value_type_name = value.type;
+                    if (value_type.ref_type) {
+                        // if the member is a ref, we need to deref the first to not return a double-ptr.
+                        resultaddr = StackAddressForward(LocMemoryIndirect, temp);
+                    }
+                    else {
+                        // even if the member is not a ref, we still return a ptr.
+                        value_type_name = "ref " + value_type_name;
+                    }
+                    wip.add_bytecode(Opcode(Bytecode::refAdd, address, offsetaddr, resultaddr));
+
+                    return {
+                        value_type_name,
+                        lhs.is_mutable && value.is_mutable,
+                        lhs.assignable && value.is_mutable,
+                        // always return an indirect for another to use
+                        StackAddressForward(LocMemoryIndirect, temp),
+                        sizeof(size_t),
+                        lhs.stack_bytes_used + value_type.size
+                    };
                 }
                 else {
-                    // even if the member is not a ref, we still return a ptr.
-                    value_type_name = "ref " + value_type_name;
+                    address.offset += value.offset;
+                    std::cout << address.loc << " access offset " << value.offset << "\n";
+
+                    // For non-refs, we just return the value as-is.
+                    // We don't wrap into a ref.
+                    return {
+                        value.type,
+                        lhs.is_mutable && value.is_mutable,
+                        lhs.assignable && value.is_mutable,
+                        address,
+                        lhs.stack_bytes_returned,
+                        lhs.stack_bytes_used
+                    };
                 }
-                wip.add_bytecode(Opcode(Bytecode::refAdd, address, offsetaddr, resultaddr));
-
-                return {
-                    value_type_name,
-                    lhs.is_mutable && value.is_mutable,
-                    lhs.assignable && value.is_mutable,
-                    // always return an indirect for another to use
-                    StackAddressForward(LocMemoryIndirect, temp),
-                    sizeof(size_t),
-                    lhs.stack_bytes_used + value_type.size
-                };
             }
-            else {
-                address.offset += value.offset;
-                std::cout << address.loc << " access offset " << value.offset << "\n";
+        }
+    }
 
-                // For non-refs, we just return the value as-is.
-                // We don't wrap into a ref.
-                return {
-                    value.type,
-                    lhs.is_mutable && value.is_mutable,
-                    lhs.assignable && value.is_mutable,
-                    address,
-                    lhs.stack_bytes_returned,
-                    lhs.stack_bytes_used
-                };
+    if (std::holds_alternative<Ast::Identifier>(access.member->data)) {
+        std::string name = std::get<Ast::Identifier>(access.member->data).name;
+
+        auto maybe_method = find_method({lhs.type}, name, wip);
+        if (maybe_method) {
+            return maybe_method.value();
+        }
+        if (lhstype.ref_type) {
+            auto maybe_method = find_method({lhstype.ref_type.value()}, name, wip);
+            if (maybe_method) {
+                return maybe_method.value();
             }
         }
     }
@@ -1052,6 +1080,8 @@ compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
 
     auto callable = compile_node(method.callable, wip, {});
     max_used = callable.stack_bytes_used;
+    bool has_implicit = std::holds_alternative<Ast::AccessMember>(method.callable->data);
+    size_t implicit_qty = has_implicit ? 1 : 0;
 
     auto methodtype = wip.types.get_type(callable.type);
     if (!std::holds_alternative<Types::MethodType>(methodtype.type)) {
@@ -1060,17 +1090,26 @@ compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
 
     auto typeinfo = std::get<Types::MethodType>(methodtype.type);
     // TODO: default params
-    if (typeinfo.parameters.size() != method.params.size()) {
+    if (typeinfo.parameters.size() != (method.params.size() + implicit_qty)) {
         throw "Incorrect number of params";
     }
     auto returntype = wip.types.get_type(typeinfo.return_type);
 
     size_t base = wip.next_stack;
     size_t total_requied = callable.stack_bytes_used;
+    if (has_implicit) {
+        auto access = std::get<Ast::AccessMember>(method.callable->data);
+        Ast::CallParam p0 = Ast::CallParam{ access.container };
+        auto param = compile_methodparam(p0, typeinfo.parameters[0], wip);
+        if (total_requied + param.stack_bytes_used > max_used) {
+            max_used = total_requied + param.stack_bytes_used;
+        }
+        total_requied += param.stack_bytes_returned;
+    }
 
     // TODO: named params and ordering
     for (size_t i = 0; i < method.params.size(); i++) {
-        auto param = compile_methodparam(std::get<Ast::CallParam>(method.params[i]->data), typeinfo.parameters[i], wip);
+        auto param = compile_methodparam(std::get<Ast::CallParam>(method.params[i]->data), typeinfo.parameters[i + implicit_qty], wip);
         if (total_requied + param.stack_bytes_used > max_used) {
             max_used = total_requied + param.stack_bytes_used;
         }
