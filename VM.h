@@ -278,6 +278,22 @@ private:
         //std::cout << a << " != " << b << " = " << r << "\n";
         return r;
     }
+    template<typename NT>
+    bool booland(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        bool r = a && b;
+        //std::cout << a << " && " << b << " = " << r << "\n";
+        return r;
+    }
+    template<typename NT>
+    bool boolor(const VMFixedStack& constants, VMFixedStack& globals, const Opcode& oc) {
+        NT a = _getv<NT>(constants, globals, oc.l1, oc.p1);
+        NT b = _getv<NT>(constants, globals, oc.l2, oc.p2);
+        bool r = a || b;
+        //std::cout << a << " || " << b << " = " << r << "\n";
+        return r;
+    }
 
     size_t _instruction_index;
     size_t _base;

@@ -57,11 +57,11 @@ enum class Bytecode: size_t {
     f32NotEqual,
     f32Negate, // [a] [out]
 
-    bAnd,
-    bOr,
-    bEqual,
-    bNotEqual,
-    bNot, // [a] [out]
+    boolAnd,
+    boolOr,
+    boolEqual,
+    boolNotEqual,
+    boolNot, // [a] [out]
 
     // 47
 
@@ -87,8 +87,8 @@ enum class Bytecode: size_t {
     Jump, // [jumpto] _ _
 
     // bool jumps
-    bJTrue, // a [jumpto]
-    bJFalse,
+    boolJTrue, // a [jumpto]
+    boolJFalse,
 
     // 53
     // conditional jumps

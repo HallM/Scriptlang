@@ -784,7 +784,7 @@ compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
         max_used = condition.stack_bytes_used;
 
         wip.add_bytecode_linked_label(
-            Opcode(Bytecode::bJFalse, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
+            Opcode(Bytecode::boolJFalse, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
             stmt.otherwise ? labellink{else_label} : labellink{end_label},
             1
         );
@@ -846,7 +846,7 @@ compiled_result compile_dowhile(Ast::DoWhile& dowhile, compiler_wip& wip) {
     }
 
     wip.add_bytecode_linked_label(
-        Opcode(Bytecode::bJTrue, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
+        Opcode(Bytecode::boolJTrue, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
         labellink{start_label},
         1
     );

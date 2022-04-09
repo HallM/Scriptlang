@@ -105,7 +105,7 @@
             break; \
         }
 
-#define ALU_COMPARISONMETHODS(vmtype,realtype) \
+#define ALU_ORDINALMETHODS(vmtype,realtype) \
         case Bytecode::##vmtype##Less: { \
             _setv<bool>(constants, globals, lt<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
             break; \
@@ -121,12 +121,28 @@
         case Bytecode::##vmtype##GreaterEqual: { \
             _setv<bool>(constants, globals, ge<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
             break; \
-        } \
+        }
+
+#define ALU_EQUALMETHODS(vmtype,realtype) \
         case Bytecode::##vmtype##Equal: { \
             _setv<bool>(constants, globals, eq<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
             break; \
         } \
         case Bytecode::##vmtype##NotEqual: { \
+            _setv<bool>(constants, globals, ne<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        }
+
+#define ALU_BOOLLOGICMETHODS(vmtype,realtype) \
+        case Bytecode::##vmtype##Not: { \
+            _setv<bool>(constants, globals, alubitnot<realtype>(constants, globals, oc) , oc.l2, oc.p2); \
+            break; \
+        } \
+        case Bytecode::##vmtype##And: { \
+            _setv<bool>(constants, globals, eq<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
+            break; \
+        } \
+        case Bytecode::##vmtype##Or: { \
             _setv<bool>(constants, globals, ne<realtype>(constants, globals, oc) , oc.l3, oc.p3); \
             break; \
         }
@@ -345,36 +361,18 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         }
     
         ALU_NUMERICALMETHODS(f32,float)
-        ALU_COMPARISONMETHODS(f32,float)
+        ALU_ORDINALMETHODS(f32,float)
+        ALU_EQUALMETHODS(f32,float)
         ALU_JUMPMETHODS(f32,float)
 
         ALU_NUMERICALMETHODS(s32,int)
-        ALU_COMPARISONMETHODS(s32,int)
+        ALU_ORDINALMETHODS(s32,int)
+        ALU_EQUALMETHODS(s32,int)
         ALU_JUMPMETHODS(s32,int)
         ALU_BITWISEMETHODS(s32,int)
 
-        case Bytecode::bAnd: {
-            bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) && _getv<bool>(constants, globals, oc.l2, oc.p2);
-            _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::bOr: {
-            bool ret = _getv<bool>(constants, globals, oc.l1, oc.p1) || _getv<bool>(constants, globals, oc.l2, oc.p2);
-            _setv<bool>(constants, globals, ret, oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::bEqual: {
-            _setv<bool>(constants, globals, eq<bool>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::bNotEqual: {
-            _setv<bool>(constants, globals, ne<bool>(constants, globals, oc) , oc.l3, oc.p3);
-            break;
-        }
-        case Bytecode::bNot: {
-            _setv<bool>(constants, globals, alubitnot<bool>(constants, globals, oc) , oc.l2, oc.p2);
-            break;
-        }
+        ALU_BOOLLOGICMETHODS(bool,bool)
+        ALU_EQUALMETHODS(bool,bool)
 
         case Bytecode::FCall: {
             size_t fn_base = _base + address_offset(oc.p2);
@@ -429,13 +427,13 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
             break;
         }
 
-        case Bytecode::bJTrue: {
+        case Bytecode::boolJTrue: {
             if (_getv<bool>(constants, globals, oc.l1, oc.p1)) {
                 _jump(constants, globals, oc.l2, oc.p2);
             }
             break;
         }
-        case Bytecode::bJFalse: {
+        case Bytecode::boolJFalse: {
             if (!_getv<bool>(constants, globals, oc.l1, oc.p1)) {
                 _jump(constants, globals, oc.l2, oc.p2);
             }
