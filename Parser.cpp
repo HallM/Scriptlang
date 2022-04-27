@@ -246,19 +246,15 @@ node_return
 parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min_power) {
     eat_whitespace(tokens);
 
-    std::cout << "Expr\n";
     std::shared_ptr<Ast::Node> lhs;
     if (is_next<Tokens::IdentifierToken>(tokens)) {
-        std::cout << "identifier\n";
         lhs = parse_identifier(root, tokens, wip).node;
     }
     else if (is_next<Tokens::S32Token>(tokens) || is_next<Tokens::F32Token>(tokens) || is_next<Tokens::BoolToken>(tokens)) {
-        std::cout << "const\n";
         lhs = parse_const(root, tokens, wip).node;
     }
     else if (is_next<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "("))) {
         tokens.pull_front();
-        std::cout << "subexpr\n";
         lhs = parse_expression(root, tokens, wip, 0).node;
         if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
             throw "Missing ) to end the expression";
@@ -286,12 +282,10 @@ parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min
         eat_whitespace(tokens);
 
         if (token.oper == "(") {
-            std::cout << "Call method\n";
             std::vector<std::shared_ptr<Ast::Node>> params;
 
             if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ")"))) {
                 while (!tokens.empty()) {
-                    std::cout << "get param\n";
                     auto paramexpr = parse_expression(root, tokens, wip, 0).node;
                     std::shared_ptr<Ast::Node> pnode = std::make_shared<Ast::Node>();
                     pnode->data = Ast::CallParam { paramexpr };
@@ -307,7 +301,6 @@ parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min
             }
 
             std::shared_ptr<Ast::Node> callnode = std::make_shared<Ast::Node>();
-            std::cout << "Done with fn call\n";
             callnode->data = Ast::MethodCall { lhs, params };
             lhs = callnode;
             continue;
@@ -332,7 +325,6 @@ parse_expression(FileNodePtr root, TokenStream& tokens, parser_wip& wip, int min
         lhs = node;
     }
     eat_whitespace(tokens);
-    std::cout << "Done with expression\n";
     return {lhs};
 }
 
@@ -459,7 +451,6 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
         auto param_name = param_token.value().identifier;
         eat_whitespace(tokens);
         param_names.push_back(param_name);
-        std::cout << "Read param " << param_name << "\n";
 
         if (!token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
             throw "Syntax error, expected : between parameter name and type";
@@ -516,8 +507,6 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
 
 node_return
 parse_statement(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
-    std::cout << "Start statement" << tokens.size() << "\n";
-
     // keyword:
     //"if", = if, WS, expr, WS?, "{", NL parse block.
     //"else", else, WS?, ":", NL parse block. verify above to append to if
@@ -557,7 +546,6 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
     std::vector<std::shared_ptr<Ast::Node>> fndefs;
     std::vector<std::shared_ptr<Ast::Node>> statements;
 
-    std::cout << "Start block " << tokens.size() << "\n";
     while (!tokens.empty()) {
         // TODO need to validate that blocks end
         if (peek_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, "}"))) {
@@ -579,7 +567,6 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
             fndefs.push_back(declnode);
         }
         else {
-            std::cout << "Adding a statement";
             statements.push_back(statement.node);
         }
     }
@@ -593,8 +580,6 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
     std::vector<std::shared_ptr<Ast::Node>> all;
     std::copy(fndefs.begin(), fndefs.end(), std::back_inserter(all));
     std::copy(statements.begin(), statements.end(), std::back_inserter(all));
-
-    std::cout << "Block has " << all.size() << "\n";
 
     std::shared_ptr<Ast::Node> n;
     if (is_global) {

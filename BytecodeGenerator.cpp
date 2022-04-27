@@ -144,7 +144,6 @@ public:
         for (size_t i = 0; i < m.size(); i++) {
             Ast::ImportedMethod method = m[i];
             auto s = get_scope(method.scopes);
-            std::cout << method.name << " imported\n";
             s->imported_method_names[method.name] = i;
         }
     }
@@ -234,8 +233,7 @@ Bytecode assignment_opcode(std::string type_name, compiler_wip& wip) {
             return Bytecode::s32Set;
         }
     }
-
-    throw "unknown assignment";
+    return Bytecode::memSet;
 }
 
 template<typename T>
@@ -371,7 +369,6 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
         return maybe_method.value();
     }
 
-    std::cout << ident << " not found\n";
     throw "Identifier not found";
 }
 
@@ -449,7 +446,6 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
                 }
                 else {
                     address.offset += value.offset;
-                    std::cout << address.loc << " access offset " << value.offset << "\n";
 
                     // For non-refs, we just return the value as-is.
                     // We don't wrap into a ref.
@@ -463,6 +459,7 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
                     };
                 }
             }
+            std::cout << "Did not find " << name << "\n";
         }
     }
 
@@ -479,6 +476,7 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
                 return maybe_method.value();
             }
         }
+        std::cout << "Did not find " << name << "\n";
     }
 
     throw "Unknown member to access";
@@ -688,6 +686,7 @@ compiled_result compile_setop(Ast::SetOperation& opnode, compiler_wip& wip) {
     size_t total_used = assign_value.stack_bytes_used;
 
     auto optype = assign_value.type;
+    auto optypeinfo = get_type(optype, wip);
 
     if (!compatible_types_by_name(assign_to.type, optype, wip)) {
         throw "Cannot set lhs to rhs as the types do not match";
@@ -699,7 +698,7 @@ compiled_result compile_setop(Ast::SetOperation& opnode, compiler_wip& wip) {
     if (from_address != assign_address) {
         auto opcode = assignment_opcode(optype, wip);
         wip.add_bytecode(
-            Opcode(opcode, from_address, assign_address)
+            Opcode(opcode, from_address, StackSize(LocMemoryDirect, optypeinfo.size), assign_address)
         );
     }
     // can free all stack since the result is stored
@@ -737,7 +736,11 @@ compiled_result compile_testbinop(Ast::BinaryOperation& opnode, compiler_wip& wi
         throw "Incompatible types";
     }
 
-    auto optable = jump_opcode(lhs_ret.type);
+    auto lhstypeinfo = get_type(lhs_ret.type, wip);
+    if (lhstypeinfo.ref_type) {
+        lhstypeinfo = get_type(lhstypeinfo.ref_type.value(), wip);
+    }
+    auto optable = jump_opcode(lhstypeinfo.name);
     auto maybeOp = optable.find(opnode.op);
     if (maybeOp == optable.end()) {
         throw "Operator not supported by type";
@@ -899,8 +902,6 @@ compiled_result compile_globalblock(Ast::GlobalBlock& block, compiler_wip& wip) 
 }
 
 compiled_result compile_methoddecl(Ast::MethodDeclaration& method, compiler_wip& wip) {
-    std::cout << "Added method " << method.name << "\n";
-
     auto type = wip.types.get_type(method.type);
     auto typedata = std::get<Types::MethodType>(type.type);
 
@@ -999,9 +1000,10 @@ compiled_result compile_return(Ast::ReturnValue& ret, compiler_wip& wip) {
         max_used = value.stack_bytes_used;
 
         if (ret_address != std::get<BytecodeParam>(value.address)) {
+            auto optypeinfo = get_type(value.type, wip);
             auto opcode = assignment_opcode(value.type, wip);
             wip.add_bytecode(
-                Opcode(opcode, std::get<BytecodeParam>(value.address), StackAddressForward(LocMemoryDirect, 0))
+                Opcode(opcode, std::get<BytecodeParam>(value.address), StackSize(LocMemoryDirect, optypeinfo.size), StackAddressForward(LocMemoryDirect, 0))
             );
         }
     }
@@ -1055,9 +1057,10 @@ compiled_result compile_methodparam(Ast::CallParam& param, Types::MethodTypePara
         );
     }
     else if (std::get<BytecodeParam>(value.address) != store_address) {
+        auto optypeinfo = get_type(value.type, wip);
         auto opcode = assignment_opcode(value.type, wip);
         wip.add_bytecode(
-            Opcode(opcode, std::get<BytecodeParam>(value.address), store_address)
+            Opcode(opcode, std::get<BytecodeParam>(value.address), StackSize(LocMemoryDirect, optypeinfo.size), store_address)
         );
         total_used += typeinfo.size;
     }
@@ -1132,7 +1135,6 @@ compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
             Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base))
         );
     }
-
 
     // free all the params
     wip.next_stack = base + returntype.size;
@@ -1294,15 +1296,7 @@ link(compiler_wip& wip) {
 
 void
 print_program(compiler_wip& wip) {
-    std::cout << "\nGlobals:\n";
-    //for (auto& m : wip.local_variables[0]) {
-    //    std::cout << m.first << ": addr=" << m.second.address << "\n";
-    //}
-    std::cout << "\nMethods:\n";
-    //for (auto& m : wip.methods) {
-    //    std::cout << m.name<< ": p=" << m.param_bytes << "; s=" << m.stack_bytes << "\n";
-    //}
-    std::cout << "\nBytecodes:\n";
+    std::cout << "Bytecodes:\n";
 
     size_t i = 0;
     for (auto& bc : wip.bytecodes) {

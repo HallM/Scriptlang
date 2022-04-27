@@ -18,7 +18,7 @@ Compiler::Compiler() {}
 std::shared_ptr<Program>
 Compiler::compile(std::string filename, std::string contents) {
     auto tokens = Tokenizer::tokenize_string(contents);
-    auto ast = Parser::parse_to_ast("test.wut", tokens, _types);
+    auto ast = Parser::parse_to_ast(filename, tokens, _types);
     return Generator::generate_bytecode(ast->root, _types, _methods);
 }
 

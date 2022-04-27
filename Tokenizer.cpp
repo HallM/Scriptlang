@@ -172,10 +172,10 @@ std::optional<std::shared_ptr<Tokens::Token>>
 try_int(std::string line, Tokens::Position start) {
     bool enable_hex = false;
     size_t i = 0;
-    while (i < line.length() && (std::isdigit(line[i]) || (enable_hex && std::isxdigit(line[i])) || (i == 1 && line[0] == '0' && line[1] == 'x') ) ) {
+    while (i < line.length() && (std::isdigit(line[i]) || (enable_hex && std::isxdigit(line[i])) || (i == 1 && line[0] == '0' && line[1] == 'x') )  || (i == 0 && line[i] == '-')) {
         i++;
     }
-    if (i == 0) {
+    if (i == 0 || (i == 1 && line[0] == '-')) {
         return {};
     }
     Tokens::Position end = Tokens::Position{start.line, start.col + i};
@@ -186,10 +186,10 @@ std::optional<std::shared_ptr<Tokens::Token>>
 try_float(std::string line, Tokens::Position start) {
     // TODO: more floats (expo et al)
     size_t i = 0;
-    while (i < line.length() && (std::isdigit(line[i]) || (i > 0 && line[i] == '.')) ) {
+    while (i < line.length() && (std::isdigit(line[i]) || (i > 0 && line[i] == '.')) || (i == 0 && line[i] == '-')) {
         i++;
     }
-    if (i == 0) {
+    if (i == 0 || (i == 1 && line[0] == '-')) {
         return {};
     }
     Tokens::Position end = Tokens::Position{start.line, start.col + i};

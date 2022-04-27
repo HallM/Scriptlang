@@ -64,7 +64,7 @@
 
 #define ALU_NUMERICALMETHODS(vmtype,realtype) \
         case Bytecode::##vmtype##Set: { \
-            _setv<realtype>(constants, globals, _getv<realtype>(constants, globals, oc.l1, oc.p1), oc.l2, oc.p2); \
+            _setv<realtype>(constants, globals, _getv<realtype>(constants, globals, oc.l1, oc.p1), oc.l3, oc.p3); \
             break; \
         } \
         case Bytecode::##vmtype##SetFromIndexed: { \
@@ -316,6 +316,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         }
         case Bytecode::DataAddress: {
             size_t address = size_t(_table_ptr<int>(globals, oc.p1));
+            std::cout << "get ptr " << address << "\n";
             _setv<size_t>(constants, globals, address, oc.l2, oc.p2);
             break;
         }
@@ -335,14 +336,15 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
         case Bytecode::Dereference: {
             size_t size = oc.p2;
             char* src = _getv<char*>(constants, globals, LocMemoryDirect, oc.p1);
-            char *dest = _table_ptr<char>(globals, oc.p3);
+            char* dest = _table_ptr<char>(globals, oc.p3);
             memcpy(dest, src, size);
             break;
         }
         case Bytecode::refSet: {
             // Always fetch the ptr as direct to get the ptr itself.
             size_t v = _getv<size_t>(constants, globals, LocMemoryDirect, oc.p1);
-            _setv<size_t>(constants, globals, v, LocMemoryDirect, oc.p2);
+            // std::cout << "refset " << v << "\n";
+            _setv<size_t>(constants, globals, v, LocMemoryDirect, oc.p3);
             break;
         }
         case Bytecode::refAdd: {
@@ -350,6 +352,7 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
                 char* v = _getv<char*>(constants, globals, LocMemoryDirect, oc.p1);
                 size_t offset = _getv<size_t>(constants, globals, oc.l2, oc.p2);
                 size_t* r = reinterpret_cast<size_t*>(v + offset);
+                // std::cout << "ref add " << (size_t)v << " + " << offset << " = " << (size_t)r << " *" << *r << "\n";
                 _setv<size_t>(constants, globals, *r, LocMemoryDirect, oc.p3);
             }
             else {
@@ -357,6 +360,13 @@ VM::_run_next(const Program& program, VMFixedStack& globals) {
                 size_t offset = _getv<size_t>(constants, globals, oc.l2, oc.p2);
                 _setv<size_t>(constants, globals, v + offset, LocMemoryDirect, oc.p3);
             }
+            break;
+        }
+        case Bytecode::memSet: {
+            size_t size = oc.p2;
+            char* src = _getptr<char>(constants, globals, oc.l1, oc.p1);
+            char* dest = _table_ptr<char>(globals, oc.p3);
+            memcpy(dest, src, size);
             break;
         }
     

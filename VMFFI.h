@@ -89,7 +89,7 @@ public:
 private:
     template <typename Af, typename As, typename... Ar>
     void _set_offset(size_t index, size_t offset) {
-        _poffsets[index] = 0;
+        _poffsets[index] = offset;
         size_t loc = offset + runtimesizeof<Af>();
         _set_offset<As, Ar...>(index + 1, loc);
     }
