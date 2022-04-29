@@ -30,13 +30,10 @@ enum class PrimitiveType: unsigned int {
 //    std::vector<TupleTypeValue> values;
 //};
 //
-//struct EnumTypeNamedValue {
-//    std::string name;
-//    std::string type;
-//};
-//struct EnumType {
-//    std::vector<EnumTypeNamedValue> values;
-//};
+// Based on the C++ enum, but limited to signed 32-bit
+struct EnumType {
+    std::unordered_map<std::string, int> values;
+};
 
 struct StructTypeMember {
     std::string name;
@@ -81,7 +78,7 @@ struct TypeInfo {
     // if this type is a reference type, this will be set to the type it refers to.
     std::optional<std::string> ref_type;
     size_t size;
-    std::variant<PrimitiveType, StructType, MethodType> type;
+    std::variant<PrimitiveType, EnumType, StructType, MethodType> type;
     std::optional<std::type_index> backing_type;
     std::unordered_map<std::string, std::string> methods;
     std::unordered_map<Ast::BinaryOps, TypeBinaryOperator> binary_operators;
@@ -93,11 +90,13 @@ public:
     TypeTable();
     ~TypeTable();
 
+    bool type_exists(std::string name) const;
     const TypeInfo& get_type(std::string name) const;
     const std::vector<std::string> type_names() const;
 
     std::string add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params);
     std::string add_struct(std::string name, std::vector<StructTypeMember> members);
+    std::string add_enum(std::string name, std::unordered_map<std::string, int> values);
 
     template <typename Ret, typename... Args>
     std::string imported_method_type() {

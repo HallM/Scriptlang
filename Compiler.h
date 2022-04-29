@@ -33,6 +33,25 @@ private:
     std::vector<Ast::ImportedMethod> _methods;
 };
 
+class EnumImportBuilder {
+public:
+    EnumImportBuilder(std::string name, Types::TypeTable& types) : _name(name), _types(types) {}
+
+    EnumImportBuilder& add_value(std::string value_name, int value) {
+        _values[value_name] = value;
+        return *this;
+    }
+
+    EnumImportBuilder& build() {
+        _types.add_enum(_name, _values);
+        return *this;
+    }
+private:
+    Types::TypeTable& _types;
+    std::string _name;
+    std::unordered_map<std::string, int> _values;
+};
+
 class Compiler {
 public:
     Compiler();
@@ -42,6 +61,10 @@ public:
     template <typename T>
     StructImportBuilder<T> build_struct(std::string name) {
         return StructImportBuilder<T>(name, _types);
+    }
+
+    EnumImportBuilder build_enum(std::string name) {
+        return EnumImportBuilder(name, _types);
     }
 
     template <typename Ret, typename... Args>

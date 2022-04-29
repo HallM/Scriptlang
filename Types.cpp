@@ -111,6 +111,11 @@ TypeTable::get_type(std::string name) const {
     return _types.at(name);
 }
 
+bool
+TypeTable::type_exists(std::string name) const {
+    return _types.find(name) != _types.end();
+}
+
 const std::vector<std::string>
 TypeTable::type_names() const {
     std::vector<std::string> v;
@@ -190,6 +195,25 @@ TypeTable::add_struct(std::string type_name, std::vector<StructTypeMember> membe
     };
     return type_name;
 }
+
+std::string
+TypeTable::add_enum(std::string name, std::unordered_map<std::string, int> values) {
+    _types[name] = TypeInfo{
+        name, {},
+        runtimesizeof<int>(),
+        EnumType{values},
+        {}
+    };
+    std::string ref_type = "ref " + name;
+    _types[ref_type] = TypeInfo{
+        ref_type, name,
+        sizeof(size_t),
+        EnumType{values},
+        {}
+    };
+    return name;
+}
+
 
 }
 }

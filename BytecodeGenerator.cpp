@@ -369,6 +369,28 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
         return maybe_method.value();
     }
 
+    // TODO: any way to have enum in a scope?
+    if (n.scopes.size() == 1 && wip.types.type_exists(n.scopes[0])) {
+        auto t = wip.types.get_type(n.scopes[0]);
+        if (std::holds_alternative<Types::EnumType>(t.type)) {
+            auto enum_values = std::get<Types::EnumType>(t.type).values;
+
+            if (enum_values.contains(ident)) {
+                int value = enum_values[ident];
+
+                size_t address = constant<int>(value, wip);
+                return {
+                    type_s32,
+                    true,
+                    false,
+                    ConstantAddress(LocMemoryDirect, address),
+                    0,
+                    0
+                };
+            }
+        }
+    }
+
     throw "Identifier not found";
 }
 
@@ -459,7 +481,6 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
                     };
                 }
             }
-            std::cout << "Did not find " << name << "\n";
         }
     }
 
@@ -1094,6 +1115,7 @@ compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
     auto typeinfo = std::get<Types::MethodType>(methodtype.type);
     // TODO: default params
     if (typeinfo.parameters.size() != (method.params.size() + implicit_qty)) {
+        std::cerr << "Supplied " << (method.params.size() + implicit_qty) << " for a call requiring " << typeinfo.parameters.size() << "\n";
         throw "Incorrect number of params";
     }
     auto returntype = wip.types.get_type(typeinfo.return_type);
