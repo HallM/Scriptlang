@@ -419,8 +419,7 @@ node_return
 parse_return(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     eat_whitespace(tokens);
     std::shared_ptr<Ast::Node> node = std::make_shared<Ast::Node>();
-    // if (token_if<Tokens::NewlineToken>(tokens)) {
-    if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "void"))) {
+    if (token_if<Tokens::NewlineToken>(tokens)) {
         node->data = Ast::ReturnValue { {} };
     }
     else {
@@ -553,6 +552,7 @@ parse_block(FileNodePtr root, TokenStream& tokens, bool is_global, parser_wip& w
         }
 
         auto statement = parse_statement(root, tokens, wip);
+        eat_newlines(tokens);
 
         if (std::holds_alternative<Ast::MethodDefinition>(statement.node->data)) {
             statements.push_back(statement.node);
