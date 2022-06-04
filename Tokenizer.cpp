@@ -274,7 +274,7 @@ tokenize_string(std::string contents) {
             // we don't need empty lines...
             tokens.pop_back();
         }
-        if (tokens.size() > 0 && std::holds_alternative<Tokens::NewlineToken>(tokens[tokens.size() - 1]->data)) {
+        if (tokens.size() > 0 && !std::holds_alternative<Tokens::NewlineToken>(tokens[tokens.size() - 1]->data)) {
             // only add a new line if we added something else.
             // this way we only have one NL 
             // TODO: update that token to be larger?
