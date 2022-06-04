@@ -15,6 +15,15 @@
 namespace MattScript {
 namespace Types {
 
+enum class Mutable {
+    yes,
+    no
+};
+enum class Referenced {
+    yes,
+    no
+};
+
 enum class PrimitiveType: unsigned int {
     empty,
     boolean,
@@ -39,7 +48,7 @@ struct StructTypeMember {
     std::string name;
     size_t offset;
     std::string type;
-    bool is_mutable;
+    Mutable is_mutable;
 };
 struct StructType {
     std::unordered_map<std::string, StructTypeMember> members;
@@ -47,11 +56,11 @@ struct StructType {
 
 struct MethodTypeParameter {
     std::string type;
-    bool is_mutable;
+    Mutable is_mutable;
 };
 struct MethodType {
     std::string return_type;
-    bool return_mutable;
+    Mutable return_mutable;
     std::vector<MethodTypeParameter> parameters;
 };
 
@@ -94,7 +103,7 @@ public:
     const TypeInfo& get_type(std::string name) const;
     const std::vector<std::string> type_names() const;
 
-    std::string add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params);
+    std::string add_method(std::string return_type, Mutable return_mutable, std::vector<MethodTypeParameter> params);
     std::string add_struct(std::string name, std::vector<StructTypeMember> members);
     std::string add_enum(std::string name, std::unordered_map<std::string, int> values);
 
@@ -103,11 +112,12 @@ public:
         std::type_index r = typeid(Ret);
         std::string r_name = _mapped.at(r);
 
+        Types::Mutable mut = std::is_const<Ret>::value ? Types::Mutable::no : Types::Mutable::yes;
         std::vector<MethodTypeParameter> params = {
             MethodTypeParameter{_mapped.at(typeid(Args)), !std::is_const<Args>::value}...
         };
 
-        return add_method(r_name, !std::is_const<Ret>::value, params);
+        return add_method(r_name, mut, params);
     }
 
     template <typename T>

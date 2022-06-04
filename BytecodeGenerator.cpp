@@ -77,7 +77,7 @@ struct methodlink {
 
 struct compiled_result {
     std::string type;
-    bool is_mutable;
+    Types::Mutable is_mutable;
     bool assignable;
     // the current address information for the resulting data of this expression.
     std::variant<BytecodeParam, labellink, methodlink> address;
@@ -87,29 +87,34 @@ struct compiled_result {
     size_t stack_bytes_used;
 };
 
+enum class linkedparamindex {
+    first,
+    second,
+    third
+};
 struct labellinkable {
     // the param (0-2) that needs to be linked
-    size_t param;
+    linkedparamindex param;
     // the label to look up
     labellink label;
 };
 struct methodlinkable {
     // the param (0-2) that needs to be linked
-    size_t param;
+    linkedparamindex param;
     methodlink method;
 };
 
 struct variableinfo {
     std::string name;
     std::string type;
-    bool is_mutable;
+    Types::Mutable is_mutable;
     size_t address;
 };
 
 struct methodinfo {
     std::string name;
     std::string type;
-    bool return_mutable;
+    Types::Mutable return_mutable;
     bool defined;
     size_t index;
     size_t address;
@@ -165,11 +170,11 @@ public:
         bytecodes.push_back(operation{oc, {}, {}});
     }
 
-    void add_bytecode_linked_method(Opcode oc, methodlink method, size_t param_index) {
+    void add_bytecode_linked_method(Opcode oc, methodlink method, linkedparamindex param_index) {
         bytecodes.push_back(operation{oc, {}, methodlinkable{param_index, method}});
     }
 
-    void add_bytecode_linked_label(Opcode oc, labellink label, size_t param_index) {
+    void add_bytecode_linked_label(Opcode oc, labellink label, linkedparamindex param_index) {
         bytecodes.push_back(operation{oc, labellinkable{param_index, label}, {}});
     }
 
@@ -269,7 +274,7 @@ compiled_result compile_const_s32(Ast::ConstS32& s32node, compiler_wip& wip) {
     size_t address = constant<int>(s32node.num, wip);
     return {
         type_s32,
-        true,
+        Types::Mutable::yes,
         false,
         ConstantAddress(LocMemoryDirect, address),
         0,
@@ -281,7 +286,7 @@ compiled_result compile_const_f32(Ast::ConstF32& f32node, compiler_wip& wip) {
     size_t address = constant<float>(f32node.num, wip);
     return {
         type_f32,
-        true,
+        Types::Mutable::yes,
         false,
         ConstantAddress(LocMemoryDirect, address),
         0,
@@ -293,7 +298,7 @@ compiled_result compile_const_bool(Ast::ConstBool& bnode, compiler_wip& wip) {
     size_t address = constant<bool>(bnode.value, wip);
     return {
         type_bool,
-        true,
+        Types::Mutable::yes,
         false,
         ConstantAddress(LocMemoryDirect, address),
         0,
@@ -308,7 +313,7 @@ find_method(std::vector<std::string> scope_names, std::string ident, compiler_wi
         // Note that method references would be handled above.
         return compiled_result{
             maybe_method.value()->type,
-            false,
+            Types::Mutable::no,
             false,
             methodlink{ident},
             0,
@@ -322,7 +327,7 @@ find_method(std::vector<std::string> scope_names, std::string ident, compiler_wi
         auto method = wip.imported_methods[maybe_imported->second];
         return compiled_result{
             method.type,
-            false,
+            Types::Mutable::no,
             false,
             ExternalCall(LocMemoryDirect, maybe_imported->second),
             0,
@@ -356,7 +361,7 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
             return {
                 type.name,
                 it->second.is_mutable,
-                it->second.is_mutable,
+                it->second.is_mutable == Types::Mutable::yes,
                 ret,
                 0,
                 0
@@ -381,7 +386,7 @@ compiled_result compile_identifier(Ast::Identifier n, compiler_wip& wip) {
                 size_t address = constant<int>(value, wip);
                 return {
                     type_s32,
-                    true,
+                    Types::Mutable::yes,
                     false,
                     ConstantAddress(LocMemoryDirect, address),
                     0,
@@ -458,8 +463,8 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
 
                     return {
                         value_type_name,
-                        lhs.is_mutable && value.is_mutable,
-                        lhs.assignable && value.is_mutable,
+                        lhs.is_mutable == Types::Mutable::yes ? value.is_mutable : Types::Mutable::no,
+                        lhs.assignable && value.is_mutable == Types::Mutable::yes,
                         // always return an indirect for another to use
                         StackAddressForward(LocMemoryIndirect, temp),
                         sizeof(size_t),
@@ -473,8 +478,8 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
                     // We don't wrap into a ref.
                     return {
                         value.type,
-                        lhs.is_mutable && value.is_mutable,
-                        lhs.assignable && value.is_mutable,
+                        lhs.is_mutable == Types::Mutable::yes ? value.is_mutable : Types::Mutable::no,
+                        lhs.assignable && value.is_mutable == Types::Mutable::yes,
                         address,
                         lhs.stack_bytes_returned,
                         lhs.stack_bytes_used
@@ -503,7 +508,7 @@ compiled_result compile_memberaccess(Ast::AccessMember& access, compiler_wip& wi
     throw "Unknown member to access";
 }
 
-compiled_result reserve_local(std::string name, std::string type_name, bool is_mutable, compiler_wip& wip) {
+compiled_result reserve_local(std::string name, std::string type_name, Types::Mutable is_mutable, compiler_wip& wip) {
     auto& loc = wip.current_scope->local_variables[wip.current_scope->local_variables.size() - 1];
     if (loc.find(name) != loc.end()) {
         // TODO: shadow probably would work fine without
@@ -587,7 +592,7 @@ compiled_result compile_unaryop(Ast::UnaryOperation& opnode, compiler_wip& wip, 
     return {
         optype,
         // we generate a new value, so it could safely be mutable
-        true,
+        Types::Mutable::yes,
         false,
         ret,
         stack,
@@ -671,7 +676,7 @@ compiled_result compile_shared_binop(std::shared_ptr<Ast::Node> lhs, std::shared
     return {
         optype,
         // we generate a new value, so it could safely be mutable
-        true,
+        Types::Mutable::yes,
         false,
         ret,
         stack,
@@ -699,7 +704,7 @@ compiled_result compile_setop(Ast::SetOperation& opnode, compiler_wip& wip) {
     else {
         assign_value = compile_node(opnode.rhs, wip, assign_address);
     }
-    if (assign_to.is_mutable && !assign_value.is_mutable) {
+    if (assign_to.is_mutable == Types::Mutable::yes && assign_value.is_mutable == Types::Mutable::no) {
         throw "Unable to assign immutable value to a mutable variable";
     }
 
@@ -770,7 +775,7 @@ compiled_result compile_testbinop(Ast::BinaryOperation& opnode, compiler_wip& wi
     wip.add_bytecode_linked_label(
         Opcode(maybeOp->second, std::get<BytecodeParam>(lhs_ret.address), std::get<BytecodeParam>(rhs_ret.address), BytecodeParam(0, 0)),
         labellink{else_label},
-        2
+        linkedparamindex::third
     );
 
     // can free all unused stack for other ops now
@@ -778,7 +783,7 @@ compiled_result compile_testbinop(Ast::BinaryOperation& opnode, compiler_wip& wi
 
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         BytecodeParam(0, 0),
         stack,
@@ -802,7 +807,7 @@ compiled_result compile_nodelist(std::vector<std::shared_ptr<Ast::Node>> nodes, 
     wip.next_stack = last_stack;
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         BytecodeParam(0, 0),
         0,
@@ -838,7 +843,7 @@ compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
         wip.add_bytecode_linked_label(
             Opcode(Bytecode::boolJFalse, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
             stmt.otherwise ? labellink{else_label} : labellink{end_label},
-            1
+            linkedparamindex::second
         );
     }
 
@@ -855,7 +860,7 @@ compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
         wip.add_bytecode_linked_label(
             Opcode(Bytecode::Jump, BytecodeParam(0, 0)),
             labellink{end_label},
-            0
+            linkedparamindex::first
         );
 
         // nothing from Then is needed.
@@ -872,7 +877,7 @@ compiled_result compile_if(Ast::IfStmt& stmt, compiler_wip& wip) {
     // TODO: if expressions
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         BytecodeParam(0, 0),
         0,
@@ -900,7 +905,7 @@ compiled_result compile_dowhile(Ast::DoWhile& dowhile, compiler_wip& wip) {
     wip.add_bytecode_linked_label(
         Opcode(Bytecode::boolJTrue, std::get<BytecodeParam>(condition.address), BytecodeParam(0, 0)),
         labellink{start_label},
-        1
+        linkedparamindex::second
     );
 
     // free all stack used above
@@ -910,7 +915,7 @@ compiled_result compile_dowhile(Ast::DoWhile& dowhile, compiler_wip& wip) {
 
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         BytecodeParam(0, 0),
         0,
@@ -938,7 +943,7 @@ compiled_result compile_methoddecl(Ast::MethodDeclaration& method, compiler_wip&
 
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         BytecodeParam(0, 0),
         0,
@@ -1004,7 +1009,7 @@ compiled_result compile_methoddef(Ast::MethodDefinition& method, compiler_wip& w
 
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         ScriptCall(LocMemoryDirect, address),
         0,
@@ -1033,7 +1038,7 @@ compiled_result compile_return(Ast::ReturnValue& ret, compiler_wip& wip) {
     );
     return {
         type_empty,
-        false,
+        Types::Mutable::no,
         false,
         BytecodeParam(0, 0),
         0, // we assume this is reserved by the method.
@@ -1061,7 +1066,7 @@ compiled_result compile_methodparam(Ast::CallParam& param, Types::MethodTypePara
     if (!compatible_types(value_type, param_type)) {
         throw "Parameter is the incorrect type";
     }
-    if (!value.is_mutable && type.is_mutable) {
+    if (value.is_mutable == Types::Mutable::no && type.is_mutable == Types::Mutable::yes) {
         throw "Unable to assign immutable value to a mutable parameter";
     }
 
@@ -1148,7 +1153,7 @@ compiled_result compile_methodcall(Ast::MethodCall& method, compiler_wip& wip) {
         wip.add_bytecode_linked_method(
             Opcode(Bytecode::Call, p1, StackAddressForward(LocMemoryDirect, base)),
             l,
-            0
+            linkedparamindex::first
         );
     }
     else {
@@ -1302,13 +1307,13 @@ link(compiler_wip& wip) {
 
             BytecodeParam linked = _jump_address(link_address, i);
             switch (ll.param) {
-            case 0:
+            case linkedparamindex::first:
                 bc.set_parameter1(linked);
                 break;
-            case 1:
+            case linkedparamindex::second:
                 bc.set_parameter2(linked);
                 break;
-            case 2:
+            case linkedparamindex::third:
                 bc.set_parameter3(linked);
                 break;
             }

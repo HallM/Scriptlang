@@ -126,7 +126,7 @@ TypeTable::type_names() const {
 }
 
 std::string
-TypeTable::add_method(std::string return_type, bool return_mutable, std::vector<MethodTypeParameter> params) {
+TypeTable::add_method(std::string return_type, Mutable return_mutable, std::vector<MethodTypeParameter> params) {
     std::ostringstream stream;
     stream << return_type << "(";
     bool add_comma = false;

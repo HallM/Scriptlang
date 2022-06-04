@@ -184,16 +184,16 @@ binary_operator(Tokens::OperatorToken token) {
 
 struct typeret {
     std::string type_name;
-    bool is_mutable;
+    Types::Mutable is_mutable;
 };
 
 typeret
 parse_type(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     bool is_ref = false;
-    bool is_mut = false;
+    Types::Mutable is_mut = Types::Mutable::no;
 
     if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "mut"))) {
-        is_mut = true;
+        is_mut = Types::Mutable::yes;
     }
     if (token_if<Tokens::KeywordToken>(tokens, std::bind_front(is_keyword, "ref"))) {
         is_ref = true;
@@ -475,7 +475,7 @@ parse_method_decl(FileNodePtr root, TokenStream& tokens, parser_wip& wip) {
     }
     eat_whitespace(tokens);
 
-    typeret ret_type = {"void", false};
+    typeret ret_type = {"void", Types::Mutable::no};
     if (token_if<Tokens::OperatorToken>(tokens, std::bind_front(is_operator, ":"))) {
         eat_whitespace(tokens);
         ret_type = parse_type(root, tokens, wip);
